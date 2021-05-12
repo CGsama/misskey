@@ -77,7 +77,7 @@ export default async function(user: User, withAll = false) {
 				fileEle += ` <br><a href="${DriveFiles.getPublicUrl(file)}" download="${file.name}">${file.name}</a>`;
 			}
 		}
-		outstr += `${note.text || ''}${fileEle}`;
+		outstr += `${note.cw ? note.cw + '<br>' : ''}${note.text || ''}${fileEle}`;
 		if(isTheNote){
 			outstr += ` <span class="${(note.renoteId ? 'renote_note' : (note.replyId ? 'reply_note' : 'new_note'))} ${(fileEle.indexOf('img src') != -1 ? 'with_img' : 'without_img')}"></span>`;
 		}
