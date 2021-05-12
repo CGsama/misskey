@@ -1,13 +1,18 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { ModerationLogs } from '../../../../models';
 import { makePaginationQuery } from '../../common/make-pagination-query';
 
 export const meta = {
+	desc: {
+		'ja-JP': 'モデレーションログ一覧を表示します。',
+		'en-US': 'Display the moderation log list.'
+	},
+
 	tags: ['admin'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 	requireModerator: true,
 
 	params: {
@@ -23,6 +28,45 @@ export const meta = {
 		untilId: {
 			validator: $.optional.type(ID),
 		},
+	},
+
+	res: {
+		type: 'array' as const,
+		optional: false as const, nullable: false as const,
+		items: {
+			type: 'object' as const,
+			optional: false as const, nullable: false as const,
+			properties: {
+				id: {
+					type: 'string' as const,
+					optional: false as const, nullable: false as const,
+					format: 'id'
+				},
+				createdAt: {
+					type: 'string' as const,
+					optional: false as const, nullable: false as const,
+					format: 'date-time'
+				},
+				type: {
+					type: 'string' as const,
+					optional: false as const, nullable: false as const
+				},
+				info: {
+					type: 'object' as const,
+					optional: false as const, nullable: false as const
+				},
+				userId: {
+					type: 'string' as const,
+					optional: false as const, nullable: false as const,
+					format: 'id'
+				},
+				user: {
+					type: 'object' as const,
+					optional: false as const, nullable: false as const,
+					ref: 'User'
+				}
+			}
+		}
 	}
 };
 

@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import config from '../../config';
+import config from '@/config';
 import * as jsrsasign from 'jsrsasign';
 
 const ECC_PRELUDE = Buffer.from([0x04]);
@@ -78,7 +78,7 @@ function verifyCertificateChain(certificates: string[]) {
 }
 
 function PEMString(pemBuffer: Buffer, type = 'CERTIFICATE') {
-	if (pemBuffer.length == 65 && pemBuffer[0] == 0x04) {
+	if (pemBuffer.length === 65 && pemBuffer[0] === 0x04) {
 		pemBuffer = Buffer.concat([PEM_PRELUDE, pemBuffer], 91);
 		type = 'PUBLIC KEY';
 	}

@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { Blockings } from '../../../../models';
 import { makePaginationQuery } from '../../common/make-pagination-query';
@@ -10,9 +10,9 @@ export const meta = {
 		'en-US': 'Get blocking users.'
 	},
 
-	tags: ['blocking', 'account'],
+	tags: ['account'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'read:blocks',
 

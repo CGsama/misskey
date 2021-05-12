@@ -1,12 +1,17 @@
 import $ from 'cafy';
 import define from '../../../define';
 import { Instances } from '../../../../../models';
-import { toPuny } from '../../../../../misc/convert-host';
+import { toPuny } from '@/misc/convert-host';
 
 export const meta = {
+	desc: {
+		'ja-JP': '指定したドメインのアクティビティの配信を停止するかを選択します。',
+		'en-US': 'Select whether to undeliver the activity for the specified domain.'
+	},
+
 	tags: ['admin'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 	requireModerator: true,
 
 	params: {
@@ -14,7 +19,7 @@ export const meta = {
 			validator: $.str
 		},
 
-		isClosed: {
+		isSuspended: {
 			validator: $.bool
 		},
 	}
@@ -28,6 +33,6 @@ export default define(meta, async (ps, me) => {
 	}
 
 	Instances.update({ host: toPuny(ps.host) }, {
-		isMarkedAsClosed: ps.isClosed
+		isSuspended: ps.isSuspended
 	});
 });

@@ -3,14 +3,16 @@ import * as ms from 'ms';
 import { length } from 'stringz';
 import create from '../../../../services/note/create';
 import define from '../../define';
-import { fetchMeta } from '../../../../misc/fetch-meta';
+import { fetchMeta } from '@/misc/fetch-meta';
 import { ApiError } from '../../error';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { User } from '../../../../models/entities/user';
-import { Users, DriveFiles, Notes } from '../../../../models';
+import { Users, DriveFiles, Notes, Channels } from '../../../../models';
 import { DriveFile } from '../../../../models/entities/drive-file';
 import { Note } from '../../../../models/entities/note';
-import { DB_MAX_NOTE_TEXT_LENGTH } from '../../../../misc/hard-limits';
+import { DB_MAX_NOTE_TEXT_LENGTH } from '@/misc/hard-limits';
+import { noteVisibilities } from '../../../../types';
+import { Channel } from '../../../../models/entities/channel';
 
 let maxNoteTextLength = 500;
 
@@ -21,15 +23,13 @@ setInterval(() => {
 }, 3000);
 
 export const meta = {
-	stability: 'stable',
-
 	desc: {
 		'ja-JP': '投稿します。'
 	},
 
 	tags: ['notes'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	limit: {
 		duration: ms('1hour'),
@@ -40,7 +40,7 @@ export const meta = {
 
 	params: {
 		visibility: {
-			validator: $.optional.str.or(['public', 'home', 'followers', 'specified']),
+			validator: $.optional.str.or(noteVisibilities as unknown as string[]),
 			default: 'public',
 			desc: {
 				'ja-JP': '投稿の公開範囲'
@@ -113,23 +113,6 @@ export const meta = {
 			}
 		},
 
-		geo: {
-			validator: $.optional.nullable.obj({
-				coordinates: $.arr().length(2)
-					.item(0, $.num.range(-180, 180))
-					.item(1, $.num.range(-90, 90)),
-				altitude: $.nullable.num,
-				accuracy: $.nullable.num,
-				altitudeAccuracy: $.nullable.num,
-				heading: $.nullable.num.range(0, 360),
-				speed: $.nullable.num
-			}).strict(),
-			desc: {
-				'ja-JP': '位置情報'
-			},
-			ref: 'geo'
-		},
-
 		fileIds: {
 			validator: $.optional.arr($.type(ID)).unique().range(1, 4),
 			desc: {
@@ -146,21 +129,28 @@ export const meta = {
 		},
 
 		replyId: {
-			validator: $.optional.type(ID),
+			validator: $.optional.nullable.type(ID),
 			desc: {
 				'ja-JP': '返信対象'
 			}
 		},
 
 		renoteId: {
-			validator: $.optional.type(ID),
+			validator: $.optional.nullable.type(ID),
 			desc: {
 				'ja-JP': 'Renote対象'
 			}
 		},
 
+		channelId: {
+			validator: $.optional.nullable.type(ID),
+			desc: {
+				'ja-JP': 'チャンネル'
+			}
+		},
+
 		poll: {
-			validator: $.optional.obj({
+			validator: $.optional.nullable.obj({
 				choices: $.arr($.str)
 					.unique()
 					.range(2, 10)
@@ -224,11 +214,17 @@ export const meta = {
 			message: 'Poll is already expired.',
 			code: 'CANNOT_CREATE_ALREADY_EXPIRED_POLL',
 			id: '04da457d-b083-4055-9082-955525eda5a5'
-		}
+		},
+
+		noSuchChannel: {
+			message: 'No such channel.',
+			code: 'NO_SUCH_CHANNEL',
+			id: 'b1653923-5453-4edc-b786-7c4f39bb0bbb'
+		},
 	}
 };
 
-export default define(meta, async (ps, user, app) => {
+export default define(meta, async (ps, user) => {
 	let visibleUsers: User[] = [];
 	if (ps.visibleUserIds) {
 		visibleUsers = (await Promise.all(ps.visibleUserIds.map(id => Users.findOne(id))))
@@ -287,6 +283,15 @@ export default define(meta, async (ps, user, app) => {
 		throw new ApiError(meta.errors.contentRequired);
 	}
 
+	let channel: Channel | undefined;
+	if (ps.channelId != null) {
+		channel = await Channels.findOne(ps.channelId);
+
+		if (channel == null) {
+			throw new ApiError(meta.errors.noSuchChannel);
+		}
+	}
+
 	// 投稿を作成
 	const note = await create(user, {
 		createdAt: new Date(),
@@ -300,15 +305,14 @@ export default define(meta, async (ps, user, app) => {
 		reply,
 		renote,
 		cw: ps.cw,
-		app,
 		viaMobile: ps.viaMobile,
 		localOnly: ps.localOnly,
 		visibility: ps.visibility,
 		visibleUsers,
+		channel,
 		apMentions: ps.noExtractMentions ? [] : undefined,
 		apHashtags: ps.noExtractHashtags ? [] : undefined,
 		apEmojis: ps.noExtractEmojis ? [] : undefined,
-		geo: ps.geo
 	});
 
 	return {

@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { ApiError } from '../../error';
 import { Pages, PageLikes } from '../../../../models';
@@ -11,7 +11,7 @@ export const meta = {
 
 	tags: ['pages'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'write:page-likes',
 

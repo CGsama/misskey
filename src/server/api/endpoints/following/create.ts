@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import * as ms from 'ms';
 import create from '../../../../services/following/create';
 import define from '../../define';
@@ -8,8 +8,6 @@ import { getUser } from '../../common/getters';
 import { Followings, Users } from '../../../../models';
 
 export const meta = {
-	stability: 'stable',
-
 	desc: {
 		'ja-JP': '指定したユーザーをフォローします。',
 		'en-US': 'Follow a user.'
@@ -22,7 +20,7 @@ export const meta = {
 		max: 100
 	},
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'write:following',
 
@@ -66,6 +64,12 @@ export const meta = {
 			code: 'BLOCKED',
 			id: 'c4ab57cc-4e41-45e9-bfd9-584f61e35ce0'
 		},
+	},
+
+	res: {
+		type: 'object' as const,
+		optional: false as const, nullable: false as const,
+		ref: 'User'
 	}
 };
 

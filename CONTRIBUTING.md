@@ -1,8 +1,14 @@
 # Contribution guide
 :v: Thanks for your contributions :v:
 
+## When you contribute...
+- 任意のIssueについて、せっかく実装してくださっても、実装方法や設計の認識が揃ってないとマージできない/しないことになりかねないので、初めにそのIssue上で着手することを宣言し、必要に応じて他メンバーと実装方法や設計のすり合わせを行ってください。宣言することは作業が他の人と被るのを防止する効果もあります。
+  - 設計に迷った時はプロジェクトリーダーの判断を仰いでください。
+- 時間や優先度の都合上、提出してくださったPRが長期間放置されることもありますがご理解ください。
+  - 温度感高めで見てほしいものは責付いてください。
+
 ## Issues
-Feature suggestions and bug reports are filed in https://github.com/syuilo/misskey/issues .
+Feature suggestions and bug reports are filed in https://github.com/misskey-dev/misskey/issues .
 
 * Please search existing issues to avoid duplication. If your issue is already filed, please add your reaction or comment to the existing one.
 * If you have multiple independent issues, please submit them separately.
@@ -44,7 +50,7 @@ Configuration files are located in [`/.circleci`](/.circleci).
 * Your PR should include all source files (e.g. `.png`, `.blend`) of your models (for later editing).
 * Your PR must include the glTF binary files (`.glb`) of your models.
 * Add a locale key `room.furnitures.YOUR_ITEM` at [`/locales/ja-JP.yml`](/locales/ja-JP.yml).
-* Add a furniture definition at [`/src/client/app/common/scripts/room/furnitures.json5`](/src/client/app/common/scripts/room/furnitures.json5).
+* Add a furniture definition at [`src/client/scripts/room/furnitures.json5`](src/client/scripts/room/furnitures.json5).
 
 If you have no experience on 3D modeling, we suggest to use the free 3DCG software [Blender](https://www.blender.org/).
 You can find information on glTF 2.0 at [glTF 2.0 — Blender Manual]( https://docs.blender.org/manual/en/dev/addons/io_scene_gltf2.html).
@@ -233,36 +239,6 @@ SQLでは配列のインデックスは**1始まり**。
 ### `undefined`にご用心
 MongoDBの時とは違い、findOneでレコードを取得する時に対象レコードが存在しない場合 **`undefined`** が返ってくるので注意。
 MongoDBは`null`で返してきてたので、その感覚で`if (x === null)`とか書くとバグる。代わりに`if (x == null)`と書いてください
-
-### 簡素な`undefined`チェック
-データベースからレコードを取得するときに、プログラムの流れ的に(ほぼ)絶対`undefined`にはならない場合でも、`undefined`チェックしないとTypeScriptに怒られます。
-でもいちいち複数行を費やして、発生するはずのない`undefined`をチェックするのも面倒なので、`ensure`というユーティリティ関数を用意しています。
-例えば、
-``` ts
-const user = await Users.findOne(userId);
-// この時点で user の型は User | undefined
-if (user == null) {
-	throw 'missing user';
-}
-// この時点で user の型は User
-```
-という処理を`ensure`を使うと
-``` ts
-const user = await Users.findOne(userId).then(ensure);
-// この時点で user の型は User
-```
-という風に書けます。
-もちろん`ensure`内部でエラーを握りつぶすようなことはしておらず、万が一`undefined`だった場合はPromiseがRejectされ後続の処理は実行されません。
-``` ts
-const user = await Users.findOne(userId).then(ensure);
-// 万が一 Users.findOne の結果が undefined だったら、ensure でエラーが発生するので
-// この行に到達することは無い
-// なので、.then(ensure) は
-// if (user == null) {
-//	throw 'missing user';
-// }
-// の糖衣構文のような扱いです
-```
 
 ### Migration作成方法
 ```

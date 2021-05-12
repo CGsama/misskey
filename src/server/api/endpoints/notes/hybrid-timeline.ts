@@ -1,14 +1,17 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
-import { fetchMeta } from '../../../../misc/fetch-meta';
+import { fetchMeta } from '@/misc/fetch-meta';
 import { ApiError } from '../../error';
 import { makePaginationQuery } from '../../common/make-pagination-query';
 import { Followings, Notes } from '../../../../models';
 import { Brackets } from 'typeorm';
 import { generateVisibilityQuery } from '../../common/generate-visibility-query';
-import { generateMuteQuery } from '../../common/generate-mute-query';
+import { generateMutedUserQuery } from '../../common/generate-muted-user-query';
 import { activeUsersChart } from '../../../../services/chart';
+import { generateRepliesQuery } from '../../common/generate-replies-query';
+import { generateMutedNoteQuery } from '../../common/generate-muted-note-query';
+import { generateChannelQuery } from '../../common/generate-channel-query';
 
 export const meta = {
 	desc: {
@@ -17,7 +20,7 @@ export const meta = {
 
 	tags: ['notes'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		limit: {
@@ -124,11 +127,18 @@ export default define(meta, async (ps, user) => {
 			qb.where(`((note.userId IN (${ followingQuery.getQuery() })) OR (note.userId = :meId))`, { meId: user.id })
 				.orWhere('(note.visibility = \'public\') AND (note.userHost IS NULL)');
 		}))
-		.leftJoinAndSelect('note.user', 'user')
+		.innerJoinAndSelect('note.user', 'user')
+		.leftJoinAndSelect('note.reply', 'reply')
+		.leftJoinAndSelect('note.renote', 'renote')
+		.leftJoinAndSelect('reply.user', 'replyUser')
+		.leftJoinAndSelect('renote.user', 'renoteUser')
 		.setParameters(followingQuery.getParameters());
 
+	generateChannelQuery(query, user);
+	generateRepliesQuery(query, user);
 	generateVisibilityQuery(query, user);
-	generateMuteQuery(query, user);
+	generateMutedUserQuery(query, user);
+	generateMutedNoteQuery(query, user);
 
 	if (ps.includeMyRenotes === false) {
 		query.andWhere(new Brackets(qb => {

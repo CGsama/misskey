@@ -4,7 +4,8 @@ Misskey構築の手引き
 Misskeyサーバーの構築にご関心をお寄せいただきありがとうございます！
 このガイドではMisskeyのインストール・セットアップ方法について解説します。
 
-[英語版もあります - English version also available](./setup.en.md)
+- [英語版もあります - English version also available](./setup.en.md)
+- [简体中文版同样可用 - Simplified Chinese version also available](./setup.zh.md)
 
 ----------------------------------------------------------------
 
@@ -22,7 +23,7 @@ adduser --disabled-password --disabled-login misskey
 これらのソフトウェアをインストール・設定してください:
 
 #### 依存関係 :package:
-* **[Node.js](https://nodejs.org/en/)** (11.7.0以上)
+* **[Node.js](https://nodejs.org/en/)** (12.x, 14.x)
 * **[PostgreSQL](https://www.postgresql.org/)** (10以上)
 * **[Redis](https://redis.io/)**
 
@@ -41,13 +42,13 @@ adduser --disabled-password --disabled-login misskey
 
 2. masterブランチからMisskeyレポジトリをクローン
 
-	`git clone -b master git://github.com/syuilo/misskey.git`
+	`git clone -b master git://github.com/misskey-dev/misskey.git`
 
 3. misskeyディレクトリに移動
 
 	`cd misskey`
 
-4. [最新のリリース](https://github.com/syuilo/misskey/releases/latest)を確認
+4. [最新のリリース](https://github.com/misskey-dev/misskey/releases/latest)を確認
 
 	`git checkout master`
 

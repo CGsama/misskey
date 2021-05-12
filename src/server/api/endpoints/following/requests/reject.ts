@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import rejectFollowRequest from '../../../../../services/following/requests/reject';
 import define from '../../../define';
 import { ApiError } from '../../../error';
@@ -13,7 +13,7 @@ export const meta = {
 
 	tags: ['following', 'account'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'write:following',
 

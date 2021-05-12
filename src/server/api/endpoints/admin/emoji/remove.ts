@@ -1,6 +1,6 @@
 import $ from 'cafy';
 import define from '../../../define';
-import { ID } from '../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { Emojis } from '../../../../../models';
 import { getConnection } from 'typeorm';
 import { insertModerationLog } from '../../../../../services/insert-moderation-log';
@@ -13,7 +13,7 @@ export const meta = {
 
 	tags: ['admin'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 	requireModerator: true,
 
 	params: {

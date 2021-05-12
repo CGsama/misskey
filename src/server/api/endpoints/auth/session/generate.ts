@@ -1,15 +1,15 @@
 import { v4 as uuid } from 'uuid';
 import $ from 'cafy';
-import config from '../../../../../config';
+import config from '@/config';
 import define from '../../../define';
 import { ApiError } from '../../../error';
 import { Apps, AuthSessions } from '../../../../../models';
-import { genId } from '../../../../../misc/gen-id';
+import { genId } from '@/misc/gen-id';
 
 export const meta = {
 	tags: ['auth'],
 
-	requireCredential: false,
+	requireCredential: false as const,
 
 	desc: {
 		'ja-JP': 'アプリを認証するためのトークンを作成します。',

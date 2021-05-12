@@ -4,9 +4,14 @@ import { getConnection } from 'typeorm';
 import { insertModerationLog } from '../../../../services/insert-moderation-log';
 
 export const meta = {
+	desc: {
+		'ja-JP': 'データベースのメンテナンスを行います。',
+		'en-US': 'Perform database maintenance.'
+	},
+
 	tags: ['admin'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 	requireModerator: true,
 
 	params: {

@@ -1,7 +1,10 @@
+import { Brackets } from 'typeorm';
 import define from '../../define';
-import { fetchMeta } from '../../../../misc/fetch-meta';
+import { fetchMeta } from '@/misc/fetch-meta';
 import { Notes } from '../../../../models';
 import { Note } from '../../../../models/entities/note';
+import { safeForSql } from '@/misc/safe-for-sql';
+import { normalizeForSearch } from '@/misc/normalize-for-search';
 
 /*
 トレンドに載るためには「『直近a分間のユニーク投稿数が今からa分前～今からb分前の間のユニーク投稿数のn倍以上』のハッシュタグの上位5位以内に入る」ことが必要
@@ -10,7 +13,7 @@ import { Note } from '../../../../models/entities/note';
 ..が理想だけどPostgreSQLでどうするのか分からないので単に「直近Aの内に投稿されたユニーク投稿数が多いハッシュタグ」で妥協する
 */
 
-const rangeA = 1000 * 60 * 30; // 30分
+const rangeA = 1000 * 60 * 60; // 60分
 //const rangeB = 1000 * 60 * 120; // 2時間
 //const coefficient = 1.25; // 「n倍」の部分
 //const requiredUsers = 3; // 最低何人がそのタグを投稿している必要があるか
@@ -20,7 +23,7 @@ const max = 5;
 export const meta = {
 	tags: ['hashtags'],
 
-	requireCredential: false,
+	requireCredential: false as const,
 
 	res: {
 		type: 'array' as const,
@@ -52,13 +55,17 @@ export const meta = {
 
 export default define(meta, async () => {
 	const instance = await fetchMeta(true);
-	const hiddenTags = instance.hiddenTags.map(t => t.toLowerCase());
+	const hiddenTags = instance.hiddenTags.map(t => normalizeForSearch(t));
 
 	const now = new Date(); // 5分単位で丸めた現在日時
 	now.setMinutes(Math.round(now.getMinutes() / 5) * 5, 0, 0);
 
 	const tagNotes = await Notes.createQueryBuilder('note')
 		.where(`note.createdAt > :date`, { date: new Date(now.getTime() - rangeA) })
+		.andWhere(new Brackets(qb => { qb
+			.where(`note.visibility = 'public'`)
+			.orWhere(`note.visibility = 'home'`);
+		}))
 		.andWhere(`note.tags != '{}'`)
 		.select(['note.tags', 'note.userId'])
 		.cache(60000) // 1 min
@@ -108,7 +115,7 @@ export default define(meta, async () => {
 	for (let i = 0; i < range; i++) {
 		countPromises.push(Promise.all(hots.map(tag => Notes.createQueryBuilder('note')
 			.select('count(distinct note.userId)')
-			.where(':tag = ANY(note.tags)', { tag: tag })
+			.where(`'{"${safeForSql(tag) ? tag : 'aichan_kawaii'}"}' <@ note.tags`)
 			.andWhere('note.createdAt < :lt', { lt: new Date(now.getTime() - (interval * i)) })
 			.andWhere('note.createdAt > :gt', { gt: new Date(now.getTime() - (interval * (i + 1))) })
 			.cache(60000) // 1 min
@@ -118,16 +125,16 @@ export default define(meta, async () => {
 	}
 
 	const countsLog = await Promise.all(countPromises);
+	//#endregion
 
 	const totalCounts = await Promise.all(hots.map(tag => Notes.createQueryBuilder('note')
 		.select('count(distinct note.userId)')
-		.where(':tag = ANY(note.tags)', { tag: tag })
-		.andWhere('note.createdAt > :gt', { gt: new Date(now.getTime() - (interval * range)) })
-		.cache(60000) // 1 min
+		.where(`'{"${safeForSql(tag) ? tag : 'aichan_kawaii'}"}' <@ note.tags`)
+		.andWhere('note.createdAt > :gt', { gt: new Date(now.getTime() - rangeA) })
+		.cache(60000 * 60) // 60 min
 		.getRawOne()
 		.then(x => parseInt(x.count, 10))
 	));
-	//#endregion
 
 	const stats = hots.map((tag, i) => ({
 		tag,

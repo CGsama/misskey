@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { NoteFavorites } from '../../../../models';
 import { makePaginationQuery } from '../../common/make-pagination-query';
@@ -12,7 +12,7 @@ export const meta = {
 
 	tags: ['account', 'notes', 'favorites'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'read:favorites',
 

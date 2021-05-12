@@ -1,9 +1,9 @@
 import $ from 'cafy';
 import * as ms from 'ms';
 import define from '../../define';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { Pages, DriveFiles } from '../../../../models';
-import { genId } from '../../../../misc/gen-id';
+import { genId } from '@/misc/gen-id';
 import { Page } from '../../../../models/entities/page';
 import { ApiError } from '../../error';
 
@@ -14,7 +14,7 @@ export const meta = {
 
 	tags: ['pages'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'write:pages',
 
@@ -42,6 +42,10 @@ export const meta = {
 
 		variables: {
 			validator: $.arr($.obj())
+		},
+
+		script: {
+			validator: $.str,
 		},
 
 		eyeCatchingImageId: {
@@ -115,6 +119,7 @@ export default define(meta, async (ps, user) => {
 		summary: ps.summary,
 		content: ps.content,
 		variables: ps.variables,
+		script: ps.script,
 		eyeCatchingImageId: eyeCatchingImage ? eyeCatchingImage.id : null,
 		userId: user.id,
 		visibility: 'public',

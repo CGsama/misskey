@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { DriveFiles } from '../../../../models';
 import { makePaginationQuery } from '../../common/make-pagination-query';
@@ -7,7 +7,7 @@ import { makePaginationQuery } from '../../common/make-pagination-query';
 export const meta = {
 	tags: ['drive'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'read:drive',
 

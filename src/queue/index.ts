@@ -1,8 +1,6 @@
-import * as Queue from 'bull';
 import * as httpSignature from 'http-signature';
 
-import config from '../config';
-import { ILocalUser } from '../models/entities/user';
+import config from '@/config';
 import { program } from '../argv';
 
 import processDeliver from './processors/deliver';
@@ -12,31 +10,17 @@ import procesObjectStorage from './processors/object-storage';
 import { queueLogger } from './logger';
 import { DriveFile } from '../models/entities/drive-file';
 import { getJobInfo } from './get-job-info';
-
-function initializeQueue(name: string) {
-	return new Queue(name, {
-		redis: {
-			port: config.redis.port,
-			host: config.redis.host,
-			password: config.redis.pass,
-			db: config.redis.db || 0,
-		},
-		prefix: config.redis.prefix ? `${config.redis.prefix}:queue` : 'queue'
-	});
-}
+import { dbQueue, deliverQueue, inboxQueue, objectStorageQueue } from './queues';
+import { ThinUser } from './types';
+import { IActivity } from '@/remote/activitypub/type';
 
 function renderError(e: Error): any {
 	return {
-		stack: e.stack,
-		message: e.message,
-		name: e.name
+		stack: e?.stack,
+		message: e?.message,
+		name: e?.name
 	};
 }
-
-export const deliverQueue = initializeQueue('deliver');
-export const inboxQueue = initializeQueue('inbox');
-export const dbQueue = initializeQueue('db');
-export const objectStorageQueue = initializeQueue('objectStorage');
 
 const deliverLogger = queueLogger.createSubLogger('deliver');
 const inboxLogger = queueLogger.createSubLogger('inbox');
@@ -75,8 +59,9 @@ objectStorageQueue
 	.on('error', (job: any, err: Error) => objectStorageLogger.error(`error ${err}`, { job, e: renderError(err) }))
 	.on('stalled', (job) => objectStorageLogger.warn(`stalled id=${job.id}`));
 
-export function deliver(user: ILocalUser, content: any, to: any) {
+export function deliver(user: ThinUser, content: unknown, to: string | null) {
 	if (content == null) return null;
+	if (to == null) return null;
 
 	const data = {
 		user,
@@ -85,7 +70,7 @@ export function deliver(user: ILocalUser, content: any, to: any) {
 	};
 
 	return deliverQueue.add(data, {
-		attempts: 8,
+		attempts: config.deliverJobMaxAttempts || 12,
 		backoff: {
 			type: 'exponential',
 			delay: 60 * 1000
@@ -95,24 +80,24 @@ export function deliver(user: ILocalUser, content: any, to: any) {
 	});
 }
 
-export function inbox(activity: any, signature: httpSignature.IParsedSignature) {
+export function inbox(activity: IActivity, signature: httpSignature.IParsedSignature) {
 	const data = {
 		activity: activity,
 		signature
 	};
 
 	return inboxQueue.add(data, {
-		attempts: 8,
+		attempts: config.inboxJobMaxAttempts || 8,
 		backoff: {
 			type: 'exponential',
-			delay: 1000
+			delay: 60 * 1000
 		},
 		removeOnComplete: true,
 		removeOnFail: true
 	});
 }
 
-export function createDeleteDriveFilesJob(user: ILocalUser) {
+export function createDeleteDriveFilesJob(user: ThinUser) {
 	return dbQueue.add('deleteDriveFiles', {
 		user: user
 	}, {
@@ -121,7 +106,7 @@ export function createDeleteDriveFilesJob(user: ILocalUser) {
 	});
 }
 
-export function createExportNotesJob(user: ILocalUser) {
+export function createExportNotesJob(user: ThinUser) {
 	return dbQueue.add('exportNotes', {
 		user: user
 	}, {
@@ -130,7 +115,7 @@ export function createExportNotesJob(user: ILocalUser) {
 	});
 }
 
-export function createExportFollowingJob(user: ILocalUser) {
+export function createExportFollowingJob(user: ThinUser) {
 	return dbQueue.add('exportFollowing', {
 		user: user
 	}, {
@@ -139,7 +124,7 @@ export function createExportFollowingJob(user: ILocalUser) {
 	});
 }
 
-export function createExportMuteJob(user: ILocalUser) {
+export function createExportMuteJob(user: ThinUser) {
 	return dbQueue.add('exportMute', {
 		user: user
 	}, {
@@ -148,7 +133,7 @@ export function createExportMuteJob(user: ILocalUser) {
 	});
 }
 
-export function createExportBlockingJob(user: ILocalUser) {
+export function createExportBlockingJob(user: ThinUser) {
 	return dbQueue.add('exportBlocking', {
 		user: user
 	}, {
@@ -157,7 +142,7 @@ export function createExportBlockingJob(user: ILocalUser) {
 	});
 }
 
-export function createExportUserListsJob(user: ILocalUser) {
+export function createExportUserListsJob(user: ThinUser) {
 	return dbQueue.add('exportUserLists', {
 		user: user
 	}, {
@@ -166,7 +151,7 @@ export function createExportUserListsJob(user: ILocalUser) {
 	});
 }
 
-export function createImportFollowingJob(user: ILocalUser, fileId: DriveFile['id']) {
+export function createImportFollowingJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importFollowing', {
 		user: user,
 		fileId: fileId
@@ -176,7 +161,7 @@ export function createImportFollowingJob(user: ILocalUser, fileId: DriveFile['id
 	});
 }
 
-export function createImportUserListsJob(user: ILocalUser, fileId: DriveFile['id']) {
+export function createImportUserListsJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importUserLists', {
 		user: user,
 		fileId: fileId

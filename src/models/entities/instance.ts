@@ -114,12 +114,13 @@ export class Instance {
 	public isNotResponding: boolean;
 
 	/**
-	 * このインスタンスが閉鎖済みとしてマークされているか
+	 * このインスタンスへの配信を停止するか
 	 */
+	@Index()
 	@Column('boolean', {
 		default: false
 	})
-	public isMarkedAsClosed: boolean;
+	public isSuspended: boolean;
 
 	@Column('varchar', {
 		length: 64, nullable: true, default: null,
@@ -156,6 +157,21 @@ export class Instance {
 		length: 256, nullable: true, default: null,
 	})
 	public maintainerEmail: string | null;
+
+	@Column('varchar', {
+		length: 256, nullable: true, default: null,
+	})
+	public iconUrl: string | null;
+
+	@Column('varchar', {
+		length: 256, nullable: true, default: null,
+	})
+	public faviconUrl: string | null;
+
+	@Column('varchar', {
+		length: 64, nullable: true, default: null,
+	})
+	public themeColor: string | null;
 
 	@Column('timestamp with time zone', {
 		nullable: true,

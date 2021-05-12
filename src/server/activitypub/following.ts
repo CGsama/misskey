@@ -1,7 +1,7 @@
 import * as Router from '@koa/router';
-import config from '../../config';
+import config from '@/config';
 import $ from 'cafy';
-import { ID } from '../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import * as url from '../../prelude/url';
 import { renderActivity } from '../../remote/activitypub/renderer';
 import renderOrderedCollection from '../../remote/activitypub/renderer/ordered-collection';
@@ -83,7 +83,7 @@ export default async (ctx: Router.RouterContext) => {
 		// index page
 		const rendered = renderOrderedCollection(partOf, user.followingCount, `${partOf}?page=true`);
 		ctx.body = renderActivity(rendered);
-		ctx.set('Cache-Control', 'private, max-age=0, must-revalidate');
+		ctx.set('Cache-Control', 'public, max-age=180');
 		setResponseType(ctx);
 	}
 };

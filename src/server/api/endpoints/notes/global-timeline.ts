@@ -1,12 +1,14 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
-import { fetchMeta } from '../../../../misc/fetch-meta';
+import { fetchMeta } from '@/misc/fetch-meta';
 import { ApiError } from '../../error';
 import { makePaginationQuery } from '../../common/make-pagination-query';
 import { Notes } from '../../../../models';
-import { generateMuteQuery } from '../../common/generate-mute-query';
+import { generateMutedUserQuery } from '../../common/generate-muted-user-query';
 import { activeUsersChart } from '../../../../services/chart';
+import { generateRepliesQuery } from '../../common/generate-replies-query';
+import { generateMutedNoteQuery } from '../../common/generate-muted-note-query';
 
 export const meta = {
 	desc: {
@@ -76,10 +78,16 @@ export default define(meta, async (ps, user) => {
 	const query = makePaginationQuery(Notes.createQueryBuilder('note'),
 			ps.sinceId, ps.untilId, ps.sinceDate, ps.untilDate)
 		.andWhere('note.visibility = \'public\'')
-		.andWhere('note.replyId IS NULL')
-		.leftJoinAndSelect('note.user', 'user');
+		.andWhere('note.channelId IS NULL')
+		.innerJoinAndSelect('note.user', 'user')
+		.leftJoinAndSelect('note.reply', 'reply')
+		.leftJoinAndSelect('note.renote', 'renote')
+		.leftJoinAndSelect('reply.user', 'replyUser')
+		.leftJoinAndSelect('renote.user', 'renoteUser');
 
-	if (user) generateMuteQuery(query, user);
+	generateRepliesQuery(query, user);
+	if (user) generateMutedUserQuery(query, user);
+	if (user) generateMutedNoteQuery(query, user);
 
 	if (ps.withFiles) {
 		query.andWhere('note.fileIds != \'{}\'');

@@ -1,32 +1,33 @@
+import { URL } from 'url';
 import * as promiseLimit from 'promise-limit';
 
-import config from '../../../config';
+import config from '@/config';
 import Resolver from '../resolver';
 import { resolveImage } from './image';
-import { isCollectionOrOrderedCollection, isCollection, IPerson, getApId } from '../type';
-import { fromHtml } from '../../../mfm/fromHtml';
+import { isCollectionOrOrderedCollection, isCollection, IPerson, getApId, getOneApHrefNullable, IObject, isPropertyValue, IApPropertyValue } from '../type';
+import { fromHtml } from '../../../mfm/from-html';
+import { htmlToMfm } from '../misc/html-to-mfm';
 import { resolveNote, extractEmojis } from './note';
 import { registerOrFetchInstanceDoc } from '../../../services/register-or-fetch-instance-doc';
-import { ITag, extractHashtags } from './tag';
-import { IIdentifier } from './identifier';
+import { extractApHashtags } from './tag';
 import { apLogger } from '../logger';
 import { Note } from '../../../models/entities/note';
 import { updateUsertags } from '../../../services/update-hashtag';
-import { Users, UserNotePinings, Instances, DriveFiles, Followings, UserProfiles, UserPublickeys } from '../../../models';
+import { Users, Instances, DriveFiles, Followings, UserProfiles, UserPublickeys } from '../../../models';
 import { User, IRemoteUser } from '../../../models/entities/user';
 import { Emoji } from '../../../models/entities/emoji';
-import { UserNotePining } from '../../../models/entities/user-note-pinings';
-import { genId } from '../../../misc/gen-id';
+import { UserNotePining } from '../../../models/entities/user-note-pining';
+import { genId } from '@/misc/gen-id';
 import { instanceChart, usersChart } from '../../../services/chart';
 import { UserPublickey } from '../../../models/entities/user-publickey';
-import { isDuplicateKeyValueError } from '../../../misc/is-duplicate-key-value-error';
-import { toPuny } from '../../../misc/convert-host';
+import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error';
+import { toPuny } from '@/misc/convert-host';
 import { UserProfile } from '../../../models/entities/user-profile';
 import { validActor } from '../../../remote/activitypub/type';
 import { getConnection } from 'typeorm';
-import { ensure } from '../../../prelude/ensure';
 import { toArray } from '../../../prelude/array';
-import { fetchNodeinfo } from '../../../services/fetch-nodeinfo';
+import { fetchInstanceMetadata } from '../../../services/fetch-instance-metadata';
+import { normalizeForSearch } from '@/misc/normalize-for-search';
 
 const logger = apLogger;
 
@@ -134,9 +135,11 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 
 	const { fields } = analyzeAttachments(person.attachment || []);
 
-	const tags = extractHashtags(person.tag).map(tag => tag.toLowerCase()).splice(0, 32);
+	const tags = extractApHashtags(person.tag).map(tag => normalizeForSearch(tag)).splice(0, 32);
 
-	const isBot = object.type == 'Service';
+	const isBot = object.type === 'Service';
+
+	const bday = person['vcard:bday']?.match(/^\d{4}-\d{2}-\d{2}/);
 
 	// Create user
 	let user: IRemoteUser;
@@ -151,11 +154,13 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 				lastFetchedAt: new Date(),
 				name: person.name,
 				isLocked: !!person.manuallyApprovesFollowers,
+				isExplorable: !!person.discoverable,
 				username: person.preferredUsername,
 				usernameLower: person.preferredUsername!.toLowerCase(),
 				host,
 				inbox: person.inbox,
 				sharedInbox: person.sharedInbox || (person.endpoints ? person.endpoints.sharedInbox : undefined),
+				followersUri: person.followers ? getApId(person.followers) : undefined,
 				featured: person.featured ? getApId(person.featured) : undefined,
 				uri: person.id,
 				tags,
@@ -165,9 +170,11 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 
 			await transactionalEntityManager.save(new UserProfile({
 				userId: user.id,
-				description: person.summary ? fromHtml(person.summary) : null,
-				url: person.url,
+				description: person.summary ? htmlToMfm(person.summary, person.tag) : null,
+				url: getOneApHrefNullable(person.url),
 				fields,
+				birthday: bday ? bday[0] : null,
+				location: person['vcard:Address'] || null,
 				userHost: host
 			}));
 
@@ -180,18 +187,27 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 	} catch (e) {
 		// duplicate key error
 		if (isDuplicateKeyValueError(e)) {
-			throw new Error('already registered');
-		}
+			// /users/@a => /users/:id のように入力がaliasなときにエラーになることがあるのを対応
+			const u = await Users.findOne({
+				uri: person.id
+			});
 
-		logger.error(e);
-		throw e;
+			if (u) {
+				user = u as IRemoteUser;
+			} else {
+				throw new Error('already registered');
+			}
+		} else {
+			logger.error(e);
+			throw e;
+		}
 	}
 
 	// Register host
 	registerOrFetchInstanceDoc(host).then(i => {
 		Instances.increment({ id: i.id }, 'usersCount', 1);
 		instanceChart.newUser(i.host);
-		fetchNodeinfo(i);
+		fetchInstanceMetadata(i);
 	});
 
 	usersChart.update(user!, true);
@@ -213,24 +229,24 @@ export async function createPerson(uri: string, resolver?: Resolver): Promise<Us
 	const bannerId = banner ? banner.id : null;
 	const avatarUrl = avatar ? DriveFiles.getPublicUrl(avatar, true) : null;
 	const bannerUrl = banner ? DriveFiles.getPublicUrl(banner) : null;
-	const avatarColor = avatar && avatar.properties.avgColor ? avatar.properties.avgColor : null;
-	const bannerColor = banner && banner.properties.avgColor ? banner.properties.avgColor : null;
+	const avatarBlurhash = avatar ? avatar.blurhash : null;
+	const bannerBlurhash = banner ? banner.blurhash : null;
 
 	await Users.update(user!.id, {
 		avatarId,
 		bannerId,
 		avatarUrl,
 		bannerUrl,
-		avatarColor,
-		bannerColor
+		avatarBlurhash,
+		bannerBlurhash
 	});
 
 	user!.avatarId = avatarId;
 	user!.bannerId = bannerId;
 	user!.avatarUrl = avatarUrl;
 	user!.bannerUrl = bannerUrl;
-	user!.avatarColor = avatarColor;
-	user!.bannerColor = bannerColor;
+	user!.avatarBlurhash = avatarBlurhash;
+	user!.bannerBlurhash = bannerBlurhash;
 	//#endregion
 
 	//#region カスタム絵文字取得
@@ -306,33 +322,37 @@ export async function updatePerson(uri: string, resolver?: Resolver | null, hint
 
 	const emojiNames = emojis.map(emoji => emoji.name);
 
-	const { fields, services } = analyzeAttachments(person.attachment || []);
+	const { fields } = analyzeAttachments(person.attachment || []);
 
-	const tags = extractHashtags(person.tag).map(tag => tag.toLowerCase()).splice(0, 32);
+	const tags = extractApHashtags(person.tag).map(tag => normalizeForSearch(tag)).splice(0, 32);
+
+	const bday = person['vcard:bday']?.match(/^\d{4}-\d{2}-\d{2}/);
 
 	const updates = {
 		lastFetchedAt: new Date(),
 		inbox: person.inbox,
 		sharedInbox: person.sharedInbox || (person.endpoints ? person.endpoints.sharedInbox : undefined),
+		followersUri: person.followers ? getApId(person.followers) : undefined,
 		featured: person.featured,
 		emojis: emojiNames,
 		name: person.name,
 		tags,
-		isBot: object.type == 'Service',
+		isBot: object.type === 'Service',
 		isCat: (person as any).isCat === true,
 		isLocked: !!person.manuallyApprovesFollowers,
+		isExplorable: !!person.discoverable,
 	} as Partial<User>;
 
 	if (avatar) {
 		updates.avatarId = avatar.id;
 		updates.avatarUrl = DriveFiles.getPublicUrl(avatar, true);
-		updates.avatarColor = avatar.properties.avgColor ? avatar.properties.avgColor : null;
+		updates.avatarBlurhash = avatar.blurhash;
 	}
 
 	if (banner) {
 		updates.bannerId = banner.id;
 		updates.bannerUrl = DriveFiles.getPublicUrl(banner);
-		updates.bannerColor = banner.properties.avgColor ? banner.properties.avgColor : null;
+		updates.bannerBlurhash = banner.blurhash;
 	}
 
 	// Update user
@@ -344,16 +364,11 @@ export async function updatePerson(uri: string, resolver?: Resolver | null, hint
 	});
 
 	await UserProfiles.update({ userId: exist.id }, {
-		url: person.url,
+		url: getOneApHrefNullable(person.url),
 		fields,
-		description: person.summary ? fromHtml(person.summary) : null,
-		twitterUserId: services.twitter ? services.twitter.userId : null,
-		twitterScreenName: services.twitter ? services.twitter.screenName : null,
-		githubId: services.github ? services.github.id : null,
-		githubLogin: services.github ? services.github.login : null,
-		discordId: services.discord ? services.discord.id : null,
-		discordUsername: services.discord ? services.discord.username : null,
-		discordDiscriminator: services.discord ? services.discord.discriminator : null,
+		description: person.summary ? htmlToMfm(person.summary, person.tag) : null,
+		birthday: bday ? bday[0] : null,
+		location: person['vcard:Address'] || null,
 	});
 
 	// ハッシュタグ更新
@@ -391,16 +406,6 @@ export async function resolvePerson(uri: string, resolver?: Resolver): Promise<U
 	return await createPerson(uri, resolver);
 }
 
-const isPropertyValue = (x: {
-		type: string,
-		name?: string,
-		value?: string
-	}) =>
-		x &&
-		x.type === 'PropertyValue' &&
-		typeof x.name === 'string' &&
-		typeof x.value === 'string';
-
 const services: {
 		[x: string]: (id: string, username: string) => any
 	} = {
@@ -416,7 +421,7 @@ const $discord = (id: string, name: string) => {
 	return { id, username, discriminator };
 };
 
-function addService(target: { [x: string]: any }, source: IIdentifier) {
+function addService(target: { [x: string]: any }, source: IApPropertyValue) {
 	const service = services[source.name];
 
 	if (typeof source.value !== 'string')
@@ -428,7 +433,7 @@ function addService(target: { [x: string]: any }, source: IIdentifier) {
 		target[source.name.split(':')[2]] = service(id, username);
 }
 
-export function analyzeAttachments(attachments: ITag[]) {
+export function analyzeAttachments(attachments: IObject | IObject[] | undefined) {
 	const fields: {
 		name: string,
 		value: string
@@ -437,12 +442,12 @@ export function analyzeAttachments(attachments: ITag[]) {
 
 	if (Array.isArray(attachments)) {
 		for (const attachment of attachments.filter(isPropertyValue)) {
-			if (isPropertyValue(attachment.identifier!)) {
-				addService(services, attachment.identifier!);
+			if (isPropertyValue(attachment.identifier)) {
+				addService(services, attachment.identifier);
 			} else {
 				fields.push({
-					name: attachment.name!,
-					value: fromHtml(attachment.value!)
+					name: attachment.name,
+					value: fromHtml(attachment.value)
 				});
 			}
 		}
@@ -452,7 +457,7 @@ export function analyzeAttachments(attachments: ITag[]) {
 }
 
 export async function updateFeatured(userId: User['id']) {
-	const user = await Users.findOne(userId).then(ensure);
+	const user = await Users.findOneOrFail(userId);
 	if (!Users.isRemoteUser(user)) return;
 	if (!user.featured) return;
 
@@ -475,18 +480,19 @@ export async function updateFeatured(userId: User['id']) {
 		.slice(0, 5)
 		.map(item => limit(() => resolveNote(item, resolver))));
 
-	// delete
-	await UserNotePinings.delete({ userId: user.id });
+	await getConnection().transaction(async transactionalEntityManager => {
+		await transactionalEntityManager.delete(UserNotePining, { userId: user.id });
 
-	// とりあえずidを別の時間で生成して順番を維持
-	let td = 0;
-	for (const note of featuredNotes.filter(note => note != null)) {
-		td -= 1000;
-		UserNotePinings.save({
-			id: genId(new Date(Date.now() + td)),
-			createdAt: new Date(),
-			userId: user.id,
-			noteId: note!.id
-		} as UserNotePining);
-	}
+		// とりあえずidを別の時間で生成して順番を維持
+		let td = 0;
+		for (const note of featuredNotes.filter(note => note != null)) {
+			td -= 1000;
+			transactionalEntityManager.insert(UserNotePining, {
+				id: genId(new Date(Date.now() + td)),
+				createdAt: new Date(),
+				userId: user.id,
+				noteId: note!.id
+			});
+		}
+	});
 }

@@ -1,11 +1,9 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import { NoteFavorites, NoteWatchings } from '../../../../models';
 
 export const meta = {
-	stability: 'stable',
-
 	desc: {
 		'ja-JP': '指定した投稿の状態を取得します。',
 		'en-US': 'Get state of a note.'
@@ -13,7 +11,7 @@ export const meta = {
 
 	tags: ['notes'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		noteId: {
@@ -23,6 +21,21 @@ export const meta = {
 				'en-US': 'Target note ID.'
 			}
 		}
+	},
+
+	res: {
+		type: 'object' as const,
+		optional: false as const, nullable: false as const,
+		properties: {
+			isFavorited: {
+				type: 'boolean' as const,
+				optional: false as const, nullable: false as const
+			},
+			isWatching: {
+				type: 'boolean' as const,
+				optional: false as const, nullable: false as const
+			}
+		}
 	}
 };
 
@@ -30,15 +43,15 @@ export default define(meta, async (ps, user) => {
 	const [favorite, watching] = await Promise.all([
 		NoteFavorites.count({
 			where: {
-			userId: user.id,
-			noteId: ps.noteId
+				userId: user.id,
+				noteId: ps.noteId
 			},
 			take: 1
 		}),
 		NoteWatchings.count({
 			where: {
-			userId: user.id,
-			noteId: ps.noteId
+				userId: user.id,
+				noteId: ps.noteId
 			},
 			take: 1
 		})

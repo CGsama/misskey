@@ -2,85 +2,61 @@
  * Gulp tasks
  */
 
+import * as fs from 'fs';
 import * as gulp from 'gulp';
-import * as ts from 'gulp-typescript';
-const sourcemaps = require('gulp-sourcemaps');
-import tslint from 'gulp-tslint';
-const stylus = require('gulp-stylus');
 import * as rimraf from 'rimraf';
-import * as chalk from 'chalk';
-import * as rename from 'gulp-rename';
-import * as mocha from 'gulp-mocha';
-import * as replace from 'gulp-replace';
-const cleanCSS = require('gulp-clean-css');
+const replace = require('gulp-replace');
 const terser = require('gulp-terser');
+const cssnano = require('gulp-cssnano');
 
-const locales = require('./locales');
-
-const env = process.env.NODE_ENV || 'development';
-const isDebug = env !== 'production';
-
-if (isDebug) {
-	console.warn(chalk.yellow.bold('WARNING! NODE_ENV is not "production".'));
-	console.warn(chalk.yellow.bold('         built script will not be compressed.'));
-}
-
-gulp.task('build:ts', () => {
-	const tsProject = ts.createProject('./tsconfig.json');
-
-	return tsProject
-		.src()
-		.pipe(sourcemaps.init())
-		.pipe(tsProject())
-		.on('error', () => {})
-		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: '../built' }))
-		.pipe(gulp.dest('./built/'));
-});
+const locales: { [x: string]: any } = require('./locales');
+const meta = require('./package.json');
 
 gulp.task('build:copy:views', () =>
 	gulp.src('./src/server/web/views/**/*').pipe(gulp.dest('./built/server/web/views'))
 );
 
 gulp.task('build:copy:fonts', () =>
-	gulp.src('./node_modules/three/examples/fonts/**/*').pipe(gulp.dest('./built/client/assets/fonts/'))
+	gulp.src('./node_modules/three/examples/fonts/**/*').pipe(gulp.dest('./built/assets/fonts/'))
 );
 
-gulp.task('build:copy', gulp.parallel('build:copy:views', 'build:copy:fonts', () =>
+gulp.task('build:copy:locales', cb => {
+	fs.mkdirSync('./built/assets/locales', { recursive: true });
+
+	const v = { '_version_': meta.version };
+
+	for (const [lang, locale] of Object.entries(locales)) {
+		fs.writeFileSync(`./built/assets/locales/${lang}.${meta.version}.json`, JSON.stringify({ ...locale, ...v }), 'utf-8');
+	}
+
+	cb();
+});
+
+gulp.task('build:client:script', () => {
+	return gulp.src(['./src/server/web/boot.js', './src/server/web/bios.js', './src/server/web/cli.js'])
+		.pipe(replace('VERSION', JSON.stringify(meta.version)))
+		.pipe(replace('LANGS', JSON.stringify(Object.keys(locales))))
+		.pipe(terser({
+			toplevel: true
+		}))
+		.pipe(gulp.dest('./built/server/web/'));
+});
+
+gulp.task('build:client:style', () => {
+	return gulp.src(['./src/server/web/style.css', './src/server/web/bios.css', './src/server/web/cli.css'])
+		.pipe(cssnano({
+			zindex: false
+		}))
+		.pipe(gulp.dest('./built/server/web/'));
+});
+
+gulp.task('build:copy', gulp.parallel('build:copy:locales', 'build:copy:views', 'build:client:script', 'build:client:style', 'build:copy:fonts', () =>
 	gulp.src([
-		'./src/const.json',
 		'./src/emojilist.json',
-		'./src/server/web/views/**/*',
 		'./src/**/assets/**/*',
-		'!./src/client/app/**/assets/**/*'
+		'!./src/client/assets/**/*'
 	]).pipe(gulp.dest('./built/'))
 ));
-
-gulp.task('lint', () =>
-	gulp.src('./src/**/*.ts')
-		.pipe(tslint({
-			formatter: 'verbose'
-		}))
-		.pipe(tslint.report())
-);
-
-gulp.task('format', () =>
-	gulp.src('./src/**/*.ts')
-		.pipe(tslint({
-			formatter: 'verbose',
-			fix: true
-		}))
-		.pipe(tslint.report())
-);
-
-gulp.task('mocha', () =>
-	gulp.src('./test/**/*.ts')
-		.pipe(mocha({
-			exit: true,
-			require: 'ts-node/register'
-		} as any))
-);
-
-gulp.task('test', gulp.task('mocha'));
 
 gulp.task('clean', cb =>
 	rimraf('./built', cb)
@@ -90,54 +66,15 @@ gulp.task('cleanall', gulp.parallel('clean', cb =>
 	rimraf('./node_modules', cb)
 ));
 
-gulp.task('build:client:script', () => {
-	const client = require('./built/meta.json');
-	return gulp.src(['./src/client/app/boot.js', './src/client/app/safe.js'])
-		.pipe(replace('VERSION', JSON.stringify(client.version)))
-		.pipe(replace('ENV', JSON.stringify(env)))
-		.pipe(replace('LANGS', JSON.stringify(Object.keys(locales))))
-		.pipe(terser({
-			toplevel: true
-		}))
-		.pipe(gulp.dest('./built/client/assets/'));
-});
-
-gulp.task('build:client:styles', () =>
-	gulp.src('./src/client/app/init.css')
-		.pipe(cleanCSS())
-		.pipe(gulp.dest('./built/client/assets/'))
-);
-
-gulp.task('copy:client', () =>
-		gulp.src([
-			'./assets/**/*',
-			'./src/client/assets/**/*',
-			'./src/client/app/*/assets/**/*'
-		])
-			.pipe(rename(path => {
-				path.dirname = path.dirname!.replace('assets', '.');
-			}))
-			.pipe(gulp.dest('./built/client/assets/'))
-);
-
-gulp.task('doc', () =>
-	gulp.src('./src/docs/**/*.styl')
-		.pipe(stylus())
-		.pipe(cleanCSS())
-		.pipe(gulp.dest('./built/docs/assets/'))
-);
-
-gulp.task('build:client', gulp.parallel(
-	'build:client:script',
-	'build:client:styles',
-	'copy:client'
-));
-
 gulp.task('build', gulp.parallel(
-	'build:ts',
 	'build:copy',
-	'build:client',
-	'doc'
 ));
 
 gulp.task('default', gulp.task('build'));
+
+gulp.task('watch', () => {
+	gulp.watch([
+		'./src/**/*',
+		'!./src/client/**/*'
+	], { ignoreInitial: false }, gulp.task('build'));
+});

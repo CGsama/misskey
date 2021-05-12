@@ -9,9 +9,35 @@ export const meta = {
 
 	tags: ['following', 'account'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
-	kind: 'read:following'
+	kind: 'read:following',
+
+	res: {
+		type: 'array' as const,
+		optional: false as const, nullable: false as const,
+		items: {
+			type: 'object' as const,
+			optional: false as const, nullable: false as const,
+			properties: {
+				id: {
+					type: 'string' as const,
+					optional: false as const, nullable: false as const,
+					format: 'id'
+				},
+				follower: {
+					type: 'object' as const,
+					optional: false as const, nullable: false as const,
+					ref: 'User'
+				},
+				followee: {
+					type: 'object' as const,
+					optional: false as const, nullable: false as const,
+					ref: 'User'
+				}
+			}
+		}
+	}
 };
 
 export default define(meta, async (ps, user) => {

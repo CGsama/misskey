@@ -1,9 +1,8 @@
 import { Feed } from 'feed';
-import config from '../../config';
+import config from '@/config';
 import { User } from '../../models/entities/user';
 import { Users, Notes, DriveFiles, UserProfiles } from '../../models';
 import { In } from 'typeorm';
-import { ensure } from '../../prelude/ensure';
 
 export default async function(user: User, withAll = false) {
 	const author = {
@@ -12,7 +11,7 @@ export default async function(user: User, withAll = false) {
 		name: user.name || user.username
 	};
 
-	const profile = await UserProfiles.findOne(user.id).then(ensure);
+	const profile = await UserProfiles.findOneOrFail(user.id);
 
 	const notes = await Notes.find({
 		where: {

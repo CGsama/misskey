@@ -5,7 +5,7 @@
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { Source, Mixin } from './types';
-import * as meta from '../meta.json';
+const meta = require('../meta.json');
 
 /**
  * Path of configuration directory
@@ -15,12 +15,12 @@ const dir = `${__dirname}/../../.config`;
 /**
  * Path of configuration file
  */
-const path = process.env.NODE_ENV == 'test'
+const path = process.env.NODE_ENV === 'test'
 	? `${dir}/test.yml`
 	: `${dir}/default.yml`;
 
 export default function load() {
-	const config = yaml.safeLoad(fs.readFileSync(path, 'utf-8')) as Source;
+	const config = yaml.load(fs.readFileSync(path, 'utf-8')) as Source;
 
 	const mixin = {} as Mixin;
 
@@ -40,8 +40,6 @@ export default function load() {
 	mixin.authUrl = `${mixin.scheme}://${mixin.host}/auth`;
 	mixin.driveUrl = `${mixin.scheme}://${mixin.host}/files`;
 	mixin.userAgent = `Misskey/${meta.version} (${config.url})`;
-
-	if (config.autoAdmin == null) config.autoAdmin = false;
 
 	if (!config.redis.prefix) config.redis.prefix = mixin.host;
 

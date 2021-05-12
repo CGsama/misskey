@@ -1,14 +1,17 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
-import { fetchMeta } from '../../../../misc/fetch-meta';
+import { fetchMeta } from '@/misc/fetch-meta';
 import { ApiError } from '../../error';
 import { Notes } from '../../../../models';
-import { generateMuteQuery } from '../../common/generate-mute-query';
+import { generateMutedUserQuery } from '../../common/generate-muted-user-query';
 import { makePaginationQuery } from '../../common/make-pagination-query';
 import { generateVisibilityQuery } from '../../common/generate-visibility-query';
 import { activeUsersChart } from '../../../../services/chart';
 import { Brackets } from 'typeorm';
+import { generateRepliesQuery } from '../../common/generate-replies-query';
+import { generateMutedNoteQuery } from '../../common/generate-muted-note-query';
+import { generateChannelQuery } from '../../common/generate-channel-query';
 
 export const meta = {
 	desc: {
@@ -93,10 +96,17 @@ export default define(meta, async (ps, user) => {
 	const query = makePaginationQuery(Notes.createQueryBuilder('note'),
 			ps.sinceId, ps.untilId, ps.sinceDate, ps.untilDate)
 		.andWhere('(note.visibility = \'public\') AND (note.userHost IS NULL)')
-		.leftJoinAndSelect('note.user', 'user');
+		.innerJoinAndSelect('note.user', 'user')
+		.leftJoinAndSelect('note.reply', 'reply')
+		.leftJoinAndSelect('note.renote', 'renote')
+		.leftJoinAndSelect('reply.user', 'replyUser')
+		.leftJoinAndSelect('renote.user', 'renoteUser');
 
+	generateChannelQuery(query, user);
+	generateRepliesQuery(query, user);
 	generateVisibilityQuery(query, user);
-	if (user) generateMuteQuery(query, user);
+	if (user) generateMutedUserQuery(query, user);
+	if (user) generateMutedNoteQuery(query, user);
 
 	if (ps.withFiles) {
 		query.andWhere('note.fileIds != \'{}\'');

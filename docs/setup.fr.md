@@ -4,7 +4,9 @@ Guide d'installation et de configuration de Misskey
 Nous vous remerçions de l'intrêt que vous manifestez pour l'installation de votre propre instance Misskey !
 Ce guide décrit les étapes à suivre afin d'installer et de configurer une instance Misskey.
 
-[La version en japonnais est également disponible sur - 日本語版もあります](./setup.ja.md)
+- [La version en japonnais est également disponible sur - 日本語版もあります](./setup.ja.md)
+- [Version anglaise également disponible - English version also available - 英語版もあります](./setup.en.md)
+- [Version Chinois simplifié également disponible - Simplified Chinese version also available - 简体中文版同样可用](./setup.zh.md)
 
 ----------------------------------------------------------------
 
@@ -22,8 +24,8 @@ adduser --disabled-password --disabled-login misskey
 Installez les paquets suivants :
 
 #### Dépendences :package:
-* **[Node.js](https://nodejs.org/en/)** >= 11.7.0
-* **[PostgreSQL](https://www.postgresql.org/)** >= 10
+* **[Node.js](https://nodejs.org/en/)** (12.x, 14.x)
+* **[PostgreSQL](https://www.postgresql.org/)** (>= 10)
 * **[Redis](https://redis.io/)**
 
 ##### Optionnels
@@ -39,13 +41,13 @@ Installez les paquets suivants :
 
 2. Clonez la branche master du dépôt misskey.
 
-	`git clone -b master git://github.com/syuilo/misskey.git`
+	`git clone -b master git://github.com/misskey-dev/misskey.git`
 
 3. Accédez au dossier misskey.
 
 	`cd misskey`
 
-4. Checkout sur le tag de la [version la plus récente](https://github.com/syuilo/misskey/releases/latest)
+4. Checkout sur le tag de la [version la plus récente](https://github.com/misskey-dev/misskey/releases/latest)
 
 	`git checkout master`
  

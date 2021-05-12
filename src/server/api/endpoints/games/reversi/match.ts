@@ -1,11 +1,11 @@
 import $ from 'cafy';
-import { ID } from '../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { publishMainStream, publishReversiStream } from '../../../../../services/stream';
 import { eighteight } from '../../../../../games/reversi/maps';
 import define from '../../../define';
 import { ApiError } from '../../../error';
 import { getUser } from '../../../common/getters';
-import { genId } from '../../../../../misc/gen-id';
+import { genId } from '@/misc/gen-id';
 import { ReversiMatchings, ReversiGames } from '../../../../../models';
 import { ReversiGame } from '../../../../../models/entities/games/reversi/game';
 import { ReversiMatching } from '../../../../../models/entities/games/reversi/matching';
@@ -13,7 +13,7 @@ import { ReversiMatching } from '../../../../../models/entities/games/reversi/ma
 export const meta = {
 	tags: ['games'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		userId: {
@@ -72,7 +72,7 @@ export default define(meta, async (ps, user) => {
 			isLlotheo: false
 		} as Partial<ReversiGame>);
 
-		publishReversiStream(exist.parentId, 'matched', await ReversiGames.pack(game, exist.parentId));
+		publishReversiStream(exist.parentId, 'matched', await ReversiGames.pack(game, { id: exist.parentId }));
 
 		const other = await ReversiMatchings.count({
 			childId: user.id

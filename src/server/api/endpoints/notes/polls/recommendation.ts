@@ -11,7 +11,7 @@ export const meta = {
 
 	tags: ['notes'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		limit: {
@@ -22,6 +22,16 @@ export const meta = {
 		offset: {
 			validator: $.optional.num.min(0),
 			default: 0
+		}
+	},
+
+	res: {
+		type: 'array' as const,
+		optional: false as const, nullable: false as const,
+		items: {
+			type: 'object' as const,
+			optional: false as const, nullable: false as const,
+			ref: 'Note'
 		}
 	}
 };

@@ -1,6 +1,6 @@
 import * as ms from 'ms';
 import $ from 'cafy';
-import { ID } from '../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import create from '../../../../../services/drive/add-file';
 import define from '../../../define';
 import { apiLogger } from '../../../logger';
@@ -15,7 +15,7 @@ export const meta = {
 
 	tags: ['drive'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	limit: {
 		duration: ms('1hour'),
@@ -78,7 +78,7 @@ export const meta = {
 	}
 };
 
-export default define(meta, async (ps, user, app, file, cleanup) => {
+export default define(meta, async (ps, user, _, file, cleanup) => {
 	// Get 'name' parameter
 	let name = ps.name || file.originalname;
 	if (name !== undefined && name !== null) {

@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../../define';
 import { ApiError } from '../../../error';
 import { UserGroups, UserGroupJoinings } from '../../../../../models';
@@ -12,7 +12,7 @@ export const meta = {
 
 	tags: ['groups', 'account'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	kind: 'read:user-groups',
 

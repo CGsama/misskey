@@ -2,16 +2,15 @@ import $ from 'cafy';
 import { publishMainStream } from '../../../../services/stream';
 import define from '../../define';
 import rndstr from 'rndstr';
-import config from '../../../../config';
+import config from '@/config';
 import * as ms from 'ms';
 import * as bcrypt from 'bcryptjs';
 import { Users, UserProfiles } from '../../../../models';
-import { ensure } from '../../../../prelude/ensure';
 import { sendEmail } from '../../../../services/send-email';
 import { ApiError } from '../../error';
 
 export const meta = {
-	requireCredential: true,
+	requireCredential: true as const,
 
 	secure: true,
 
@@ -40,7 +39,7 @@ export const meta = {
 };
 
 export default define(meta, async (ps, user) => {
-	const profile = await UserProfiles.findOne(user.id).then(ensure);
+	const profile = await UserProfiles.findOneOrFail(user.id);
 
 	// Compare password
 	const same = await bcrypt.compare(ps.password, profile.password!);
@@ -49,7 +48,7 @@ export default define(meta, async (ps, user) => {
 		throw new ApiError(meta.errors.incorrectPassword);
 	}
 
-	await UserProfiles.update({ userId: user.id }, {
+	await UserProfiles.update(user.id, {
 		email: ps.email,
 		emailVerified: false,
 		emailVerifyCode: null
@@ -66,13 +65,15 @@ export default define(meta, async (ps, user) => {
 	if (ps.email != null) {
 		const code = rndstr('a-z0-9', 16);
 
-		await UserProfiles.update({ userId: user.id }, {
+		await UserProfiles.update(user.id, {
 			emailVerifyCode: code
 		});
 
 		const link = `${config.url}/verify-email/${code}`;
 
-		sendEmail(ps.email, 'Email verification', `To verify email, please click this link: ${link}`);
+		sendEmail(ps.email, 'Email verification',
+			`To verify email, please click this link:<br><a href="${link}">${link}</a>`,
+			`To verify email, please click this link: ${link}`);
 	}
 
 	return iObj;

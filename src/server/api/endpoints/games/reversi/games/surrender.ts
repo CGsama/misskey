@@ -1,5 +1,5 @@
 import $ from 'cafy';
-import { ID } from '../../../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { publishReversiGameStream } from '../../../../../../services/stream';
 import define from '../../../../define';
 import { ApiError } from '../../../../error';
@@ -12,7 +12,7 @@ export const meta = {
 		'ja-JP': '指定したリバーシの対局で投了します。'
 	},
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		gameId: {

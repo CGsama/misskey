@@ -1,12 +1,17 @@
 import $ from 'cafy';
 import define from '../define';
 import { Users } from '../../../models';
-import { generateMuteQueryForUsers } from '../common/generate-mute-query';
+import { generateMutedUserQueryForUsers } from '../common/generate-muted-user-query';
 
 export const meta = {
+	desc: {
+		'ja-JP': 'ユーザー一覧を表示します。',
+		'en-US': 'Display the user list.'
+	},
+
 	tags: ['users'],
 
-	requireCredential: false,
+	requireCredential: false as const,
 
 	params: {
 		limit: {
@@ -64,12 +69,13 @@ export const meta = {
 
 export default define(meta, async (ps, me) => {
 	const query = Users.createQueryBuilder('user');
+	query.where('user.isExplorable = TRUE');
 
 	switch (ps.state) {
-		case 'admin': query.where('user.isAdmin = TRUE'); break;
-		case 'moderator': query.where('user.isModerator = TRUE'); break;
-		case 'adminOrModerator': query.where('user.isAdmin = TRUE OR isModerator = TRUE'); break;
-		case 'alive': query.where('user.updatedAt > :date', { date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5) }); break;
+		case 'admin': query.andWhere('user.isAdmin = TRUE'); break;
+		case 'moderator': query.andWhere('user.isModerator = TRUE'); break;
+		case 'adminOrModerator': query.andWhere('user.isAdmin = TRUE OR user.isModerator = TRUE'); break;
+		case 'alive': query.andWhere('user.updatedAt > :date', { date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5) }); break;
 	}
 
 	switch (ps.origin) {
@@ -87,7 +93,7 @@ export default define(meta, async (ps, me) => {
 		default: query.orderBy('user.id', 'ASC'); break;
 	}
 
-	if (me) generateMuteQueryForUsers(query, me);
+	if (me) generateMutedUserQueryForUsers(query, me);
 
 	query.take(ps.limit!);
 	query.skip(ps.offset);

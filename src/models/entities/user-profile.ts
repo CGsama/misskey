@@ -2,7 +2,10 @@ import { Entity, Column, Index, OneToOne, JoinColumn, PrimaryColumn } from 'type
 import { id } from '../id';
 import { User } from './user';
 import { Page } from './page';
+import { notificationTypes } from '../../types';
 
+// TODO: このテーブルで管理している情報すべてレジストリで管理するようにしても良いかも
+//       ただ、「emailVerified が true なユーザーを find する」のようなクエリは書けなくなるからウーン
 @Entity()
 export class UserProfile {
 	@PrimaryColumn(id())
@@ -41,6 +44,11 @@ export class UserProfile {
 	}[];
 
 	@Column('varchar', {
+		length: 32, nullable: true,
+	})
+	public lang: string | null;
+
+	@Column('varchar', {
 		length: 512, nullable: true,
 		comment: 'Remote URL of the user.'
 	})
@@ -61,6 +69,11 @@ export class UserProfile {
 		default: false,
 	})
 	public emailVerified: boolean;
+
+	@Column('jsonb', {
+		default: ['follow', 'receiveFollowRequest', 'groupInvited']
+	})
+	public emailNotificationTypes: string[];
 
 	@Column('varchar', {
 		length: 128, nullable: true,
@@ -93,6 +106,7 @@ export class UserProfile {
 	})
 	public password: string | null;
 
+	// TODO: そのうち消す
 	@Column('jsonb', {
 		default: {},
 		comment: 'The client-specific data of the User.'
@@ -108,12 +122,13 @@ export class UserProfile {
 	@Column('boolean', {
 		default: false,
 	})
-	public autoWatch: boolean;
+	public autoAcceptFollowed: boolean;
 
 	@Column('boolean', {
 		default: false,
+		comment: 'Whether reject index by crawler.'
 	})
-	public autoAcceptFollowed: boolean;
+	public noCrawle: boolean;
 
 	@Column('boolean', {
 		default: false,
@@ -124,6 +139,16 @@ export class UserProfile {
 		default: false,
 	})
 	public carefulBot: boolean;
+
+	@Column('boolean', {
+		default: true,
+	})
+	public injectFeaturedNote: boolean;
+
+	@Column('boolean', {
+		default: true,
+	})
+	public receiveAnnouncementEmail: boolean;
 
 	@Column({
 		...id(),
@@ -137,87 +162,28 @@ export class UserProfile {
 	@JoinColumn()
 	public pinnedPage: Page | null;
 
-	//#region Linking
+	@Column('jsonb', {
+		default: {}
+	})
+	public integrations: Record<string, any>;
+
+	@Index()
 	@Column('boolean', {
-		default: false,
+		default: false, select: false,
 	})
-	public twitter: boolean;
+	public enableWordMute: boolean;
 
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
+	@Column('jsonb', {
+		default: []
 	})
-	public twitterAccessToken: string | null;
+	public mutedWords: string[][];
 
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
+	@Column('enum', {
+		enum: notificationTypes,
+		array: true,
+		default: [],
 	})
-	public twitterAccessTokenSecret: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public twitterUserId: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public twitterScreenName: string | null;
-
-	@Column('boolean', {
-		default: false,
-	})
-	public github: boolean;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public githubAccessToken: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public githubId: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public githubLogin: string | null;
-
-	@Column('boolean', {
-		default: false,
-	})
-	public discord: boolean;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordAccessToken: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordRefreshToken: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordExpiresDate: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordId: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordUsername: string | null;
-
-	@Column('varchar', {
-		length: 64, nullable: true, default: null,
-	})
-	public discordDiscriminator: string | null;
-	//#endregion
+	public mutingNotificationTypes: typeof notificationTypes[number][];
 
 	//#region Denormalized fields
 	@Index()

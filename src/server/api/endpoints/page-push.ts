@@ -1,12 +1,12 @@
 import $ from 'cafy';
 import define from '../define';
-import { ID } from '../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import { publishMainStream } from '../../../services/stream';
 import { Users, Pages } from '../../../models';
 import { ApiError } from '../error';
 
 export const meta = {
-	requireCredential: true,
+	requireCredential: true as const,
 	secure: true,
 
 	params: {
@@ -43,7 +43,7 @@ export default define(meta, async (ps, user) => {
 		event: ps.event,
 		var: ps.var,
 		userId: user.id,
-		user: await Users.pack(user, page.userId, {
+		user: await Users.pack(user.id, { id: page.userId }, {
 			detail: true
 		})
 	});

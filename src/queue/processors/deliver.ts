@@ -1,18 +1,24 @@
+import { URL } from 'url';
 import * as Bull from 'bull';
 import request from '../../remote/activitypub/request';
 import { registerOrFetchInstanceDoc } from '../../services/register-or-fetch-instance-doc';
 import Logger from '../../services/logger';
 import { Instances } from '../../models';
 import { instanceChart } from '../../services/chart';
-import { fetchNodeinfo } from '../../services/fetch-nodeinfo';
-import { fetchMeta } from '../../misc/fetch-meta';
-import { toPuny } from '../../misc/convert-host';
+import { fetchInstanceMetadata } from '../../services/fetch-instance-metadata';
+import { fetchMeta } from '@/misc/fetch-meta';
+import { toPuny } from '@/misc/convert-host';
+import { Cache } from '@/misc/cache';
+import { Instance } from '../../models/entities/instance';
+import { DeliverJobData } from '../types';
 
 const logger = new Logger('deliver');
 
 let latest: string | null = null;
 
-export default async (job: Bull.Job) => {
+const suspendedHostsCache = new Cache<Instance[]>(1000 * 60 * 60);
+
+export default async (job: Bull.Job<DeliverJobData>) => {
 	const { host } = new URL(job.data.to);
 
 	// ブロックしてたら中断
@@ -21,15 +27,18 @@ export default async (job: Bull.Job) => {
 		return 'skip (blocked)';
 	}
 
-	// closedなら中断
-	const closedHosts = await Instances.find({
-		where: {
-			isMarkedAsClosed: true
-		},
-		cache: 60 * 1000
-	});
-	if (closedHosts.map(x => x.host).includes(toPuny(host))) {
-		return 'skip (closed)';
+	// isSuspendedなら中断
+	let suspendedHosts = suspendedHostsCache.get(null);
+	if (suspendedHosts == null) {
+		suspendedHosts = await Instances.find({
+			where: {
+				isSuspended: true
+			},
+		});
+		suspendedHostsCache.set(null, suspendedHosts);
+	}
+	if (suspendedHosts.map(x => x.host).includes(toPuny(host))) {
+		return 'skip (suspended)';
 	}
 
 	try {
@@ -48,7 +57,7 @@ export default async (job: Bull.Job) => {
 				isNotResponding: false
 			});
 
-			fetchNodeinfo(i);
+			fetchInstanceMetadata(i);
 
 			instanceChart.requestSent(i.host, true);
 		});

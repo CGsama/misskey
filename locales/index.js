@@ -14,6 +14,7 @@ const merge = (...args) => args.reduce((a, c) => ({
 }), {});
 
 const languages = [
+	'ar-SA',
 	'cs-CZ',
 	'da-DK',
 	'de-DE',
@@ -22,9 +23,16 @@ const languages = [
 	'fr-FR',
 	'ja-JP',
 	'ja-KS',
+	'kab-KAB',
+	'kn-IN',
 	'ko-KR',
 	'nl-NL',
+	'no-NO',
 	'pl-PL',
+	'pt-PT',
+	'ru-RU',
+	'ug-CN',
+	'uk-UA',
 	'zh-CN',
 	'zh-TW',
 ];
@@ -35,7 +43,7 @@ const primaries = {
 	'zh': 'CN',
 };
 
-const locales = languages.reduce((a, c) => (a[c] = yaml.safeLoad(fs.readFileSync(`${__dirname}/${c}.yml`, 'utf-8')) || {}, a), {});
+const locales = languages.reduce((a, c) => (a[c] = yaml.load(fs.readFileSync(`${__dirname}/${c}.yml`, 'utf-8')) || {}, a), {});
 
 module.exports = Object.entries(locales)
 	.reduce((a, [k ,v]) => (a[k] = (() => {

@@ -1,10 +1,10 @@
 import $ from 'cafy';
-import { ID } from '../../../../misc/cafy-id';
+import { ID } from '@/misc/cafy-id';
 import define from '../../define';
 import read from '../../../../services/note/read';
 import { Notes, Followings } from '../../../../models';
 import { generateVisibilityQuery } from '../../common/generate-visibility-query';
-import { generateMuteQuery } from '../../common/generate-mute-query';
+import { generateMutedUserQuery } from '../../common/generate-muted-user-query';
 import { makePaginationQuery } from '../../common/make-pagination-query';
 import { Brackets } from 'typeorm';
 
@@ -16,7 +16,7 @@ export const meta = {
 
 	tags: ['notes'],
 
-	requireCredential: true,
+	requireCredential: true as const,
 
 	params: {
 		following: {
@@ -63,10 +63,14 @@ export default define(meta, async (ps, user) => {
 			.where(`:meId = ANY(note.mentions)`, { meId: user.id })
 			.orWhere(`:meId = ANY(note.visibleUserIds)`, { meId: user.id });
 		}))
-		.leftJoinAndSelect('note.user', 'user');
+		.innerJoinAndSelect('note.user', 'user')
+		.leftJoinAndSelect('note.reply', 'reply')
+		.leftJoinAndSelect('note.renote', 'renote')
+		.leftJoinAndSelect('reply.user', 'replyUser')
+		.leftJoinAndSelect('renote.user', 'renoteUser');
 
 	generateVisibilityQuery(query, user);
-	generateMuteQuery(query, user);
+	generateMutedUserQuery(query, user);
 
 	if (ps.visibility) {
 		query.andWhere('note.visibility = :visibility', { visibility: ps.visibility });
@@ -79,9 +83,7 @@ export default define(meta, async (ps, user) => {
 
 	const mentions = await query.take(ps.limit!).getMany();
 
-	for (const note of mentions) {
-		read(user.id, note.id);
-	}
+	read(user.id, mentions);
 
 	return await Notes.packMany(mentions, user);
 });

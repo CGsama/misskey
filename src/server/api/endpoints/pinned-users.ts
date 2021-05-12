@@ -1,13 +1,13 @@
 import define from '../define';
 import { Users } from '../../../models';
-import { fetchMeta } from '../../../misc/fetch-meta';
-import parseAcct from '../../../misc/acct/parse';
+import { fetchMeta } from '@/misc/fetch-meta';
+import parseAcct from '@/misc/acct/parse';
 import { User } from '../../../models/entities/user';
 
 export const meta = {
 	tags: ['users'],
 
-	requireCredential: false,
+	requireCredential: false as const,
 
 	params: {
 	},
