@@ -169,6 +169,7 @@ export default define(meta, async (ps, user) => {
 			qb.orWhere('0 < (SELECT COUNT(*) FROM poll WHERE poll."noteId" = note.id)');
 		}));
 	}
+	query.andWhere('note.replyId IS NULL'); //only show renotes or new notes
 
 	if (ps.withFiles) {
 		query.andWhere('note.fileIds != \'{}\'');

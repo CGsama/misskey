@@ -14,7 +14,7 @@ export const meta = {
 
 	tags: ['users'],
 
-	requireCredential: false as const,
+	requireCredential: true,
 
 	params: {
 		userId: {
