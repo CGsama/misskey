@@ -156,7 +156,7 @@ router.get('/docs.json', async ctx => {
 	ctx.body = docs;
 });
 
-const getFeed = async (acct: string) => {
+const getFeed = async (acct: string, withAll = false) => {
 	const { username, host } = parseAcct(acct);
 	const user = await Users.findOne({
 		usernameLower: username.toLowerCase(),
@@ -164,8 +164,20 @@ const getFeed = async (acct: string) => {
 		isSuspended: false
 	});
 
-	return user && await packFeed(user);
+	return user && await packFeed(user, withAll);
 };
+
+// Atom With All
+router.get('/@:user.feed', async ctx => {
+	const feed = await getFeed(ctx.params.user, true);
+
+	if (feed) {
+		ctx.set('Content-Type', 'application/atom+xml; charset=utf-8');
+		ctx.body = feed.atom1();
+	} else {
+		ctx.status = 404;
+	}
+});
 
 // Atom
 router.get('/@:user.atom', async ctx => {
