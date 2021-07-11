@@ -7,11 +7,6 @@ import { DB_MAX_NOTE_TEXT_LENGTH } from '@/misc/hard-limits';
 import { MoreThan } from 'typeorm';
 
 export const meta = {
-	desc: {
-		'ja-JP': 'インスタンス情報を取得します。',
-		'en-US': 'Get the information of this instance.'
-	},
-
 	tags: ['meta'],
 
 	requireCredential: false as const,
@@ -38,13 +33,11 @@ export const meta = {
 			version: {
 				type: 'string' as const,
 				optional: false as const, nullable: false as const,
-				description: 'The version of Misskey of this instance.',
 				example: config.version
 			},
 			name: {
 				type: 'string' as const,
 				optional: false as const, nullable: false as const,
-				description: 'The name of this instance.',
 			},
 			uri: {
 				type: 'string' as const,
@@ -55,7 +48,6 @@ export const meta = {
 			description: {
 				type: 'string' as const,
 				optional: false as const, nullable: true as const,
-				description: 'The description of this instance.',
 			},
 			langs: {
 				type: 'array' as const,
@@ -87,17 +79,14 @@ export const meta = {
 			disableRegistration: {
 				type: 'boolean' as const,
 				optional: false as const, nullable: false as const,
-				description: 'Whether disabled open registration.',
 			},
 			disableLocalTimeline: {
 				type: 'boolean' as const,
 				optional: false as const, nullable: false as const,
-				description: 'Whether disabled LTL and STL.',
 			},
 			disableGlobalTimeline: {
 				type: 'boolean' as const,
 				optional: false as const, nullable: false as const,
-				description: 'Whether disabled GTL.',
 			},
 			driveCapacityPerLocalUserMb: {
 				type: 'number' as const,
@@ -509,9 +498,10 @@ export default define(meta, async (ps, me) => {
 		maxNoteTextLength: Math.min(instance.maxNoteTextLength, DB_MAX_NOTE_TEXT_LENGTH),
 		emojis: await Emojis.packMany(emojis),
 		ads: ads.map(ad => ({
+			id: ad.id,
 			url: ad.url,
 			place: ad.place,
-			priority: ad.priority,
+			ratio: ad.ratio,
 			imageUrl: ad.imageUrl,
 		})),
 		enableEmail: instance.enableEmail,

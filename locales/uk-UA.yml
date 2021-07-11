@@ -307,8 +307,6 @@ monthX: "{month}"
 yearX: "{year}"
 pages: "Сторінки"
 integration: "Інтеграція"
-connectSerice: "Під’єднати"
-disconnectSerice: "Відключитися"
 enableLocalTimeline: "Увімкнути локальну стрічку"
 enableGlobalTimeline: "Увімкнути глобальну стрічку"
 disablingTimelinesInfo: "Адміністратори та модератори завжди мають доступ до всіх стрічок, навіть якщо вони вимкнуті."
@@ -691,6 +689,8 @@ user: "Користувачі"
 administration: "Управління"
 expiration: "Опитування закінчується"
 middle: "Середній"
+_ad:
+  back: "Назад"
 _gallery:
   unlike: "Не вподобати"
 _email:

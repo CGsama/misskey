@@ -308,8 +308,6 @@ monthX: "{month}月"
 yearX: "{year}年"
 pages: "ページ"
 integration: "連携"
-connectSerice: "つなぐ"
-disconnectSerice: "切ってまう"
 enableLocalTimeline: "ローカルタイムラインを使えるようにする"
 enableGlobalTimeline: "グローバルタイムラインを使えるようにする"
 disablingTimelinesInfo: "ここらへんのタイムラインを使えんようにしてしもても、管理者とモデレーターは使えるままになってるで、そうやなかったら不便やからな。"
@@ -649,6 +647,8 @@ memo: "メモ"
 high: "高い"
 middle: "中"
 low: "低い"
+_ad:
+  back: "戻る"
 _gallery:
   unlike: "良くないわ"
 _email:
