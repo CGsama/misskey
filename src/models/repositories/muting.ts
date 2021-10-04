@@ -1,18 +1,16 @@
 import { EntityRepository, Repository } from 'typeorm';
-import { Users } from '..';
-import { Muting } from '../entities/muting';
-import { awaitAll } from '../../prelude/await-all';
-import { SchemaType } from '@/misc/schema';
-import { User } from '../entities/user';
-
-export type PackedMuting = SchemaType<typeof packedMutingSchema>;
+import { Users } from '../index';
+import { Muting } from '@/models/entities/muting';
+import { awaitAll } from '@/prelude/await-all';
+import { Packed } from '@/misc/schema';
+import { User } from '@/models/entities/user';
 
 @EntityRepository(Muting)
 export class MutingRepository extends Repository<Muting> {
 	public async pack(
 		src: Muting['id'] | Muting,
 		me?: { id: User['id'] } | null | undefined
-	): Promise<PackedMuting> {
+	): Promise<Packed<'Muting'>> {
 		const muting = typeof src === 'object' ? src : await this.findOneOrFail(src);
 
 		return await awaitAll({
@@ -56,7 +54,7 @@ export const packedMutingSchema = {
 		mutee: {
 			type: 'object' as const,
 			optional: false as const, nullable: false as const,
-			ref: 'User',
+			ref: 'User' as const,
 		},
 	}
 };

@@ -1,7 +1,7 @@
 import { Feed } from 'feed';
-import config from '@/config';
-import { User } from '../../models/entities/user';
-import { Users, Notes, DriveFiles, UserProfiles } from '../../models';
+import config from '@/config/index';
+import { User } from '@/models/entities/user';
+import { Users, Notes, DriveFiles, UserProfiles } from '@/models/index';
 import { In } from 'typeorm';
 
 export default async function(user: User, withAll = false) {
