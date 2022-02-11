@@ -9,7 +9,7 @@ import { toPunyNullable } from '@/misc/convert-host';
 export const meta = {
 	tags: ['users'],
 
-	requireCredential: false as const,
+	requireCredential: true,
 
 	params: {
 		userId: {

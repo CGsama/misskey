@@ -278,6 +278,7 @@ export default define(meta, async (ps, user) => {
 		reply,
 		renote,
 		cw: ps.cw,
+		viaMobile: ps.viaMobile,
 		localOnly: ps.localOnly,
 		visibility: ps.visibility,
 		visibleUsers,
