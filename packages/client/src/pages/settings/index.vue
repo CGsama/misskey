@@ -1,18 +1,25 @@
 <template>
-<div class="vvcocwet" :class="{ wide: !narrow }" ref="el">
-	<div class="nav" v-if="!narrow || page == null">
-		<MkSpacer :content-max="700">
-			<div class="baaadecd">
-				<div class="title">{{ $ts.settings }}</div>
-				<MkInfo v-if="emailNotConfigured" warn class="info">{{ $ts.emailNotConfiguredWarning }} <MkA to="/settings/email" class="_link">{{ $ts.configure }}</MkA></MkInfo>
-				<MkSuperMenu :def="menuDef" :grid="page == null"></MkSuperMenu>
+<MkSpacer :content-max="900" :margin-min="20" :margin-max="32">
+	<div ref="el" class="vvcocwet" :class="{ wide: !narrow }">
+		<div class="header">
+			<div class="title">{{ $ts.settings }}</div>
+			<div v-if="childInfo" class="subtitle">{{ childInfo.title }}</div>
+		</div>
+		<div class="body">
+			<div v-if="!narrow || page == null" class="nav">
+				<div class="baaadecd">
+					<MkInfo v-if="emailNotConfigured" warn class="info">{{ $ts.emailNotConfiguredWarning }} <MkA to="/settings/email" class="_link">{{ $ts.configure }}</MkA></MkInfo>
+					<MkSuperMenu :def="menuDef" :grid="page == null"></MkSuperMenu>
+				</div>
 			</div>
-		</MkSpacer>
+			<div class="main">
+				<div class="bkzroven">
+					<component :is="component" :ref="el => pageChanged(el)" :key="page" v-bind="pageProps"/>
+				</div>
+			</div>
+		</div>
 	</div>
-	<div class="main">
-		<component :is="component" :key="page" v-bind="pageProps"/>
-	</div>
-</div>
+</MkSpacer>
 </template>
 
 <script lang="ts">
@@ -42,7 +49,7 @@ export default defineComponent({
 
 	setup(props, context) {
 		const indexInfo = {
-			title: i18n.locale.settings,
+			title: i18n.ts.settings,
 			icon: 'fas fa-cog',
 			bg: 'var(--bg)',
 			hideHeader: true,
@@ -52,92 +59,98 @@ export default defineComponent({
 		const narrow = ref(false);
 		const view = ref(null);
 		const el = ref(null);
+		const childInfo = ref(null);
 		const menuDef = computed(() => [{
-			title: i18n.locale.basicSettings,
+			title: i18n.ts.basicSettings,
 			items: [{
 				icon: 'fas fa-user',
-				text: i18n.locale.profile,
+				text: i18n.ts.profile,
 				to: '/settings/profile',
 				active: page.value === 'profile',
 			}, {
 				icon: 'fas fa-lock-open',
-				text: i18n.locale.privacy,
+				text: i18n.ts.privacy,
 				to: '/settings/privacy',
 				active: page.value === 'privacy',
 			}, {
 				icon: 'fas fa-laugh',
-				text: i18n.locale.reaction,
+				text: i18n.ts.reaction,
 				to: '/settings/reaction',
 				active: page.value === 'reaction',
 			}, {
 				icon: 'fas fa-cloud',
-				text: i18n.locale.drive,
+				text: i18n.ts.drive,
 				to: '/settings/drive',
 				active: page.value === 'drive',
 			}, {
 				icon: 'fas fa-bell',
-				text: i18n.locale.notifications,
+				text: i18n.ts.notifications,
 				to: '/settings/notifications',
 				active: page.value === 'notifications',
 			}, {
 				icon: 'fas fa-envelope',
-				text: i18n.locale.email,
+				text: i18n.ts.email,
 				to: '/settings/email',
 				active: page.value === 'email',
 			}, {
 				icon: 'fas fa-share-alt',
-				text: i18n.locale.integration,
+				text: i18n.ts.integration,
 				to: '/settings/integration',
 				active: page.value === 'integration',
 			}, {
 				icon: 'fas fa-lock',
-				text: i18n.locale.security,
+				text: i18n.ts.security,
 				to: '/settings/security',
 				active: page.value === 'security',
 			}],
 		}, {
-			title: i18n.locale.clientSettings,
+			title: i18n.ts.clientSettings,
 			items: [{
 				icon: 'fas fa-cogs',
-				text: i18n.locale.general,
+				text: i18n.ts.general,
 				to: '/settings/general',
 				active: page.value === 'general',
 			}, {
 				icon: 'fas fa-palette',
-				text: i18n.locale.theme,
+				text: i18n.ts.theme,
 				to: '/settings/theme',
 				active: page.value === 'theme',
 			}, {
 				icon: 'fas fa-list-ul',
-				text: i18n.locale.menu,
+				text: i18n.ts.menu,
 				to: '/settings/menu',
 				active: page.value === 'menu',
 			}, {
 				icon: 'fas fa-music',
-				text: i18n.locale.sounds,
+				text: i18n.ts.sounds,
 				to: '/settings/sounds',
 				active: page.value === 'sounds',
 			}, {
 				icon: 'fas fa-plug',
-				text: i18n.locale.plugins,
+				text: i18n.ts.plugins,
 				to: '/settings/plugin',
 				active: page.value === 'plugin',
 			}],
 		}, {
-			title: i18n.locale.otherSettings,
+			title: i18n.ts.otherSettings,
 			items: [{
 				icon: 'fas fa-boxes',
-				text: i18n.locale.importAndExport,
+				text: i18n.ts.importAndExport,
 				to: '/settings/import-export',
 				active: page.value === 'import-export',
 			}, {
+				icon: 'fas fa-volume-mute',
+				text: i18n.ts.instanceMute,
+				to: '/settings/instance-mute',
+				active: page.value === 'instance-mute',
+			}, {
 				icon: 'fas fa-ban',
-				text: i18n.locale.muteAndBlock,
+				text: i18n.ts.muteAndBlock,
 				to: '/settings/mute-block',
 				active: page.value === 'mute-block',
 			}, {
 				icon: 'fas fa-comment-slash',
-				text: i18n.locale.wordMute,
+				text: i18n.ts.wordMute,
 				to: '/settings/word-mute',
 				active: page.value === 'word-mute',
 			}, {
@@ -147,7 +160,7 @@ export default defineComponent({
 				active: page.value === 'api',
 			}, {
 				icon: 'fas fa-ellipsis-h',
-				text: i18n.locale.other,
+				text: i18n.ts.other,
 				to: '/settings/other',
 				active: page.value === 'other',
 			}],
@@ -155,7 +168,7 @@ export default defineComponent({
 			items: [{
 				type: 'button',
 				icon: 'fas fa-trash',
-				text: i18n.locale.clearCache,
+				text: i18n.ts.clearCache,
 				action: () => {
 					localStorage.removeItem('locale');
 					localStorage.removeItem('theme');
@@ -164,7 +177,7 @@ export default defineComponent({
 			}, {
 				type: 'button',
 				icon: 'fas fa-sign-in-alt fa-flip-horizontal',
-				text: i18n.locale.logout,
+				text: i18n.ts.logout,
 				action: () => {
 					signout();
 				},
@@ -184,6 +197,7 @@ export default defineComponent({
 				case 'notifications': return defineAsyncComponent(() => import('./notifications.vue'));
 				case 'mute-block': return defineAsyncComponent(() => import('./mute-block.vue'));
 				case 'word-mute': return defineAsyncComponent(() => import('./word-mute.vue'));
+				case 'instance-mute': return defineAsyncComponent(() => import('./instance-mute.vue'));
 				case 'integration': return defineAsyncComponent(() => import('./integration.vue'));
 				case 'security': return defineAsyncComponent(() => import('./security.vue'));
 				case '2fa': return defineAsyncComponent(() => import('./2fa.vue'));
@@ -192,8 +206,6 @@ export default defineComponent({
 				case 'other': return defineAsyncComponent(() => import('./other.vue'));
 				case 'general': return defineAsyncComponent(() => import('./general.vue'));
 				case 'email': return defineAsyncComponent(() => import('./email.vue'));
-				case 'email/address': return defineAsyncComponent(() => import('./email-address.vue'));
-				case 'email/notification': return defineAsyncComponent(() => import('./email-notification.vue'));
 				case 'theme': return defineAsyncComponent(() => import('./theme.vue'));
 				case 'theme/install': return defineAsyncComponent(() => import('./theme.install.vue'));
 				case 'theme/manage': return defineAsyncComponent(() => import('./theme.manage.vue'));
@@ -203,35 +215,15 @@ export default defineComponent({
 				case 'deck': return defineAsyncComponent(() => import('./deck.vue'));
 				case 'plugin': return defineAsyncComponent(() => import('./plugin.vue'));
 				case 'plugin/install': return defineAsyncComponent(() => import('./plugin.install.vue'));
-				case 'plugin/manage': return defineAsyncComponent(() => import('./plugin.manage.vue'));
 				case 'import-export': return defineAsyncComponent(() => import('./import-export.vue'));
 				case 'account-info': return defineAsyncComponent(() => import('./account-info.vue'));
-				case 'update': return defineAsyncComponent(() => import('./update.vue'));
-				case 'registry': return defineAsyncComponent(() => import('./registry.vue'));
 				case 'delete-account': return defineAsyncComponent(() => import('./delete-account.vue'));
-				case 'experimental-features': return defineAsyncComponent(() => import('./experimental-features.vue'));
 			}
-			if (page.value.startsWith('registry/keys/system/')) {
-				return defineAsyncComponent(() => import('./registry.keys.vue'));
-			}
-			if (page.value.startsWith('registry/value/system/')) {
-				return defineAsyncComponent(() => import('./registry.value.vue'));
-			}
+			return null;
 		});
 
 		watch(component, () => {
 			pageProps.value = {};
-
-			if (page.value) {
-				if (page.value.startsWith('registry/keys/system/')) {
-					pageProps.value.scope = page.value.replace('registry/keys/system/', '').split('/');
-				}
-				if (page.value.startsWith('registry/value/system/')) {
-					const path = page.value.replace('registry/value/system/', '').split('/');
-					pageProps.value.xKey = path.pop();
-					pageProps.value.scope = path;
-				}
-			}
 
 			nextTick(() => {
 				scroll(el.value, { top: 0 });
@@ -258,6 +250,11 @@ export default defineComponent({
 
 		const emailNotConfigured = computed(() => instance.enableEmail && ($i.email == null || !$i.emailVerified));
 
+		const pageChanged = (page) => {
+			if (page == null) return;
+			childInfo.value = page[symbols.PAGE_INFO];
+		};
+
 		return {
 			[symbols.PAGE_INFO]: INFO,
 			page,
@@ -268,6 +265,8 @@ export default defineComponent({
 			pageProps,
 			component,
 			emailNotConfigured,
+			pageChanged,
+			childInfo,
 		};
 	},
 });
@@ -275,51 +274,63 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .vvcocwet {
-	> .nav {
-		.baaadecd {
-			> .title {
-				margin: 16px;
-				font-size: 1.5em;
-				font-weight: bold;
-			}
+	> .header {
+		display: flex;
+		margin-bottom: 24px;
+		font-size: 1.3em;
+		font-weight: bold;
 
-			> .info {
-				margin: 0 16px;
-			}
+		> .title {
+			width: 34%;
+		}
 
-			> .accounts {
-				> .avatar {
-					display: block;
-					width: 50px;
-					height: 50px;
-					margin: 8px auto 16px auto;
-				}
-			}
+		> .subtitle {
+			flex: 1;
+			min-width: 0;
 		}
 	}
 
-	&.wide {
-		display: flex;
-		max-width: 1000px;
-		margin: 0 auto;
-		height: 100%;
-
+	> .body {
 		> .nav {
-			width: 32%;
-			box-sizing: border-box;
-			overflow: auto;
-
 			.baaadecd {
-				> .title {
-					margin: 24px 0;
+				> .info {
+					margin: 16px 0;
+				}
+
+				> .accounts {
+					> .avatar {
+						display: block;
+						width: 50px;
+						height: 50px;
+						margin: 8px auto 16px auto;
+					}
 				}
 			}
 		}
 
 		> .main {
-			flex: 1;
-			min-width: 0;
-			overflow: auto;
+			.bkzroven {
+			}
+		}
+	}
+
+	&.wide {
+		> .body {
+			display: flex;
+			height: 100%;
+
+			> .nav {
+				width: 34%;
+				padding-right: 32px;
+				box-sizing: border-box;
+				overflow: auto;
+			}
+
+			> .main {
+				flex: 1;
+				min-width: 0;
+				overflow: auto;
+			}
 		}
 	}
 }

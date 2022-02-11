@@ -1,16 +1,16 @@
 <template>
-<div class="hiyeyicy" :class="{ wide: !narrow }" ref="el">
-	<div class="nav" v-if="!narrow || page == null">
+<div ref="el" class="hiyeyicy" :class="{ wide: !narrow }">
+	<div v-if="!narrow || page == null" class="nav">
 		<MkHeader :info="header"></MkHeader>
 	
-		<MkSpacer :content-max="700">
+		<MkSpacer :content-max="700" :margin-min="16">
 			<div class="lxpfedzu">
 				<div class="banner">
 					<img :src="$instance.iconUrl || '/favicon.ico'" alt="" class="icon"/>
 				</div>
 
 				<MkInfo v-if="noMaintainerInformation" warn class="info">{{ $ts.noMaintainerInformationWarning }} <MkA to="/admin/settings" class="_link">{{ $ts.configure }}</MkA></MkInfo>
-				<MkInfo v-if="noBotProtection" warn class="info">{{ $ts.noBotProtectionWarning }} <MkA to="/admin/bot-protection" class="_link">{{ $ts.configure }}</MkA></MkInfo>
+				<MkInfo v-if="noBotProtection" warn class="info">{{ $ts.noBotProtectionWarning }} <MkA to="/admin/security" class="_link">{{ $ts.configure }}</MkA></MkInfo>
 
 				<MkSuperMenu :def="menuDef" :grid="page == null"></MkSuperMenu>
 			</div>
@@ -19,7 +19,7 @@
 	<div class="main">
 		<MkStickyContainer>
 			<template #header><MkHeader v-if="childInfo && !childInfo.hideHeader" :info="childInfo"/></template>
-			<component :is="component" :key="page" @info="onInfo" v-bind="pageProps"/>
+			<component :is="component" :ref="el => pageChanged(el)" :key="page" v-bind="pageProps"/>
 		</MkStickyContainer>
 	</div>
 </div>
@@ -29,9 +29,6 @@
 import { computed, defineAsyncComponent, defineComponent, isRef, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { i18n } from '@/i18n';
 import MkSuperMenu from '@/components/ui/super-menu.vue';
-import FormGroup from '@/components/debobigego/group.vue';
-import FormBase from '@/components/debobigego/base.vue';
-import FormButton from '@/components/debobigego/button.vue';
 import MkInfo from '@/components/ui/info.vue';
 import { scroll } from '@/scripts/scroll';
 import { instance } from '@/instance';
@@ -41,10 +38,7 @@ import { lookupUser } from '@/scripts/lookup-user';
 
 export default defineComponent({
 	components: {
-		FormBase,
 		MkSuperMenu,
-		FormGroup,
-		FormButton,
 		MkInfo,
 	},
 
@@ -61,7 +55,7 @@ export default defineComponent({
 
 	setup(props, context) {
 		const indexInfo = {
-			title: i18n.locale.controlPanel,
+			title: i18n.ts.controlPanel,
 			icon: 'fas fa-cog',
 			bg: 'var(--bg)',
 			hideHeader: true,
@@ -72,7 +66,9 @@ export default defineComponent({
 		const narrow = ref(false);
 		const view = ref(null);
 		const el = ref(null);
-		const onInfo = (viewInfo) => {
+		const pageChanged = (page) => {
+			if (page == null) return;
+			const viewInfo = page[symbols.PAGE_INFO];
 			if (isRef(viewInfo)) {
 				watch(viewInfo, () => {
 					childInfo.value = viewInfo.value;
@@ -95,129 +91,119 @@ export default defineComponent({
 		});
 
 		const menuDef = computed(() => [{
-			title: i18n.locale.quickAction,
+			title: i18n.ts.quickAction,
 			items: [{
 				type: 'button',
 				icon: 'fas fa-search',
-				text: i18n.locale.lookup,
+				text: i18n.ts.lookup,
 				action: lookup,
 			}, ...(instance.disableRegistration ? [{
 				type: 'button',
 				icon: 'fas fa-user',
-				text: i18n.locale.invite,
+				text: i18n.ts.invite,
 				action: invite,
 			}] : [])],
 		}, {
-			title: i18n.locale.administration,
+			title: i18n.ts.administration,
 			items: [{
 				icon: 'fas fa-tachometer-alt',
-				text: i18n.locale.dashboard,
+				text: i18n.ts.dashboard,
 				to: '/admin/overview',
 				active: page.value === 'overview',
 			}, {
 				icon: 'fas fa-users',
-				text: i18n.locale.users,
+				text: i18n.ts.users,
 				to: '/admin/users',
 				active: page.value === 'users',
 			}, {
 				icon: 'fas fa-laugh',
-				text: i18n.locale.customEmojis,
+				text: i18n.ts.customEmojis,
 				to: '/admin/emojis',
 				active: page.value === 'emojis',
 			}, {
 				icon: 'fas fa-globe',
-				text: i18n.locale.federation,
+				text: i18n.ts.federation,
 				to: '/admin/federation',
 				active: page.value === 'federation',
 			}, {
 				icon: 'fas fa-clipboard-list',
-				text: i18n.locale.jobQueue,
+				text: i18n.ts.jobQueue,
 				to: '/admin/queue',
 				active: page.value === 'queue',
 			}, {
 				icon: 'fas fa-cloud',
-				text: i18n.locale.files,
+				text: i18n.ts.files,
 				to: '/admin/files',
 				active: page.value === 'files',
 			}, {
 				icon: 'fas fa-broadcast-tower',
-				text: i18n.locale.announcements,
+				text: i18n.ts.announcements,
 				to: '/admin/announcements',
 				active: page.value === 'announcements',
 			}, {
 				icon: 'fas fa-audio-description',
-				text: i18n.locale.ads,
+				text: i18n.ts.ads,
 				to: '/admin/ads',
 				active: page.value === 'ads',
 			}, {
 				icon: 'fas fa-exclamation-circle',
-				text: i18n.locale.abuseReports,
+				text: i18n.ts.abuseReports,
 				to: '/admin/abuses',
 				active: page.value === 'abuses',
 			}],
 		}, {
-			title: i18n.locale.settings,
+			title: i18n.ts.settings,
 			items: [{
 				icon: 'fas fa-cog',
-				text: i18n.locale.general,
+				text: i18n.ts.general,
 				to: '/admin/settings',
 				active: page.value === 'settings',
 			}, {
-				icon: 'fas fa-cloud',
-				text: i18n.locale.files,
-				to: '/admin/files-settings',
-				active: page.value === 'files-settings',
-			}, {
 				icon: 'fas fa-envelope',
-				text: i18n.locale.emailServer,
+				text: i18n.ts.emailServer,
 				to: '/admin/email-settings',
 				active: page.value === 'email-settings',
 			}, {
 				icon: 'fas fa-cloud',
-				text: i18n.locale.objectStorage,
+				text: i18n.ts.objectStorage,
 				to: '/admin/object-storage',
 				active: page.value === 'object-storage',
 			}, {
 				icon: 'fas fa-lock',
-				text: i18n.locale.security,
+				text: i18n.ts.security,
 				to: '/admin/security',
 				active: page.value === 'security',
 			}, {
-				icon: 'fas fa-bolt',
-				text: 'ServiceWorker',
-				to: '/admin/service-worker',
-				active: page.value === 'service-worker',
-			}, {
 				icon: 'fas fa-globe',
-				text: i18n.locale.relays,
+				text: i18n.ts.relays,
 				to: '/admin/relays',
 				active: page.value === 'relays',
 			}, {
 				icon: 'fas fa-share-alt',
-				text: i18n.locale.integration,
+				text: i18n.ts.integration,
 				to: '/admin/integrations',
 				active: page.value === 'integrations',
 			}, {
 				icon: 'fas fa-ban',
-				text: i18n.locale.instanceBlocking,
+				text: i18n.ts.instanceBlocking,
 				to: '/admin/instance-block',
 				active: page.value === 'instance-block',
 			}, {
 				icon: 'fas fa-ghost',
-				text: i18n.locale.proxyAccount,
+				text: i18n.ts.proxyAccount,
 				to: '/admin/proxy-account',
 				active: page.value === 'proxy-account',
 			}, {
 				icon: 'fas fa-cogs',
-				text: i18n.locale.other,
+				text: i18n.ts.other,
 				to: '/admin/other-settings',
 				active: page.value === 'other-settings',
 			}],
 		}, {
-			title: i18n.locale.info,
+			title: i18n.ts.info,
 			items: [{
 				icon: 'fas fa-database',
-				text: i18n.locale.database,
+				text: i18n.ts.database,
 				to: '/admin/database',
 				active: page.value === 'database',
 			}],
@@ -236,17 +222,11 @@ export default defineComponent({
 				case 'database': return defineAsyncComponent(() => import('./database.vue'));
 				case 'abuses': return defineAsyncComponent(() => import('./abuses.vue'));
 				case 'settings': return defineAsyncComponent(() => import('./settings.vue'));
-				case 'files-settings': return defineAsyncComponent(() => import('./files-settings.vue'));
 				case 'email-settings': return defineAsyncComponent(() => import('./email-settings.vue'));
 				case 'object-storage': return defineAsyncComponent(() => import('./object-storage.vue'));
 				case 'security': return defineAsyncComponent(() => import('./security.vue'));
-				case 'bot-protection': return defineAsyncComponent(() => import('./bot-protection.vue'));
-				case 'service-worker': return defineAsyncComponent(() => import('./service-worker.vue'));
 				case 'relays': return defineAsyncComponent(() => import('./relays.vue'));
 				case 'integrations': return defineAsyncComponent(() => import('./integrations.vue'));
-				case 'integrations/twitter': return defineAsyncComponent(() => import('./integrations-twitter.vue'));
-				case 'integrations/github': return defineAsyncComponent(() => import('./integrations-github.vue'));
-				case 'integrations/discord': return defineAsyncComponent(() => import('./integrations-discord.vue'));
 				case 'instance-block': return defineAsyncComponent(() => import('./instance-block.vue'));
 				case 'proxy-account': return defineAsyncComponent(() => import('./proxy-account.vue'));
 				case 'other-settings': return defineAsyncComponent(() => import('./other-settings.vue'));
@@ -281,12 +261,12 @@ export default defineComponent({
 
 		const invite = () => {
 			os.api('admin/invite').then(x => {
-				os.dialog({
+				os.alert({
 					type: 'info',
 					text: x.code
 				});
 			}).catch(e => {
-				os.dialog({
+				os.alert({
 					type: 'error',
 					text: e
 				});
@@ -295,37 +275,37 @@ export default defineComponent({
 
 		const lookup = (ev) => {
 			os.popupMenu([{
-				text: i18n.locale.user,
+				text: i18n.ts.user,
 				icon: 'fas fa-user',
 				action: () => {
 					lookupUser();
 				}
 			}, {
-				text: i18n.locale.note,
+				text: i18n.ts.note,
 				icon: 'fas fa-pencil-alt',
 				action: () => {
 					alert('TODO');
 				}
 			}, {
-				text: i18n.locale.file,
+				text: i18n.ts.file,
 				icon: 'fas fa-cloud',
 				action: () => {
 					alert('TODO');
 				}
 			}, {
-				text: i18n.locale.instance,
+				text: i18n.ts.instance,
 				icon: 'fas fa-globe',
 				action: () => {
 					alert('TODO');
 				}
-			}], ev.currentTarget || ev.target);
+			}], ev.currentTarget ?? ev.target);
 		};
 
 		return {
 			[symbols.PAGE_INFO]: INFO,
 			menuDef,
 			header: {
-				title: i18n.locale.controlPanel,
+				title: i18n.ts.controlPanel,
 			},
 			noMaintainerInformation,
 			noBotProtection,
@@ -333,7 +313,7 @@ export default defineComponent({
 			narrow,
 			view,
 			el,
-			onInfo,
+			pageChanged,
 			childInfo,
 			pageProps,
 			component,

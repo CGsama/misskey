@@ -59,13 +59,13 @@ class NotificationManager {
 
 		if (exist) {
 			// 「メンションされているかつ返信されている」場合は、メンションとしての通知ではなく返信としての通知にする
-			if (reason != 'mention') {
+			if (reason !== 'mention') {
 				exist.reason = reason;
 			}
 		} else {
 			this.queue.push({
 				reason: reason,
-				target: notifiee
+				target: notifiee,
 			});
 		}
 	}
@@ -74,7 +74,7 @@ class NotificationManager {
 		for (const x of this.queue) {
 			// ミュート情報を取得
 			const mentioneeMutes = await Mutings.find({
-				muterId: x.target
+				muterId: x.target,
 			});
 
 			const mentioneesMutedUserIds = mentioneeMutes.map(m => m.muteeId);
@@ -83,7 +83,7 @@ class NotificationManager {
 			if (!mentioneesMutedUserIds.includes(this.notifier.id)) {
 				createNotification(x.target, x.reason, {
 					notifierId: this.notifier.id,
-					noteId: this.note.id
+					noteId: this.note.id,
 				});
 			}
 		}
@@ -111,7 +111,7 @@ type Option = {
 	app?: App | null;
 };
 
-export default async (user: { id: User['id']; username: User['username']; host: User['host']; isSilenced: User['isSilenced']; }, data: Option, silent = false) => new Promise<Note>(async (res, rej) => {
+export default async (user: { id: User['id']; username: User['username']; host: User['host']; isSilenced: User['isSilenced']; createdAt: User['createdAt']; }, data: Option, silent = false) => new Promise<Note>(async (res, rej) => {
 	// チャンネル外にリプライしたら対象のスコープに合わせる
 	// (クライアントサイドでやっても良い処理だと思うけどとりあえずサーバーサイドで)
 	if (data.reply && data.channel && data.reply.channelId !== data.channel.id) {
@@ -201,7 +201,7 @@ export default async (user: { id: User['id']; username: User['username']; host: 
 		mentionedUsers.push(await Users.findOneOrFail(data.reply.userId));
 	}
 
-	if (data.visibility == 'specified') {
+	if (data.visibility === 'specified') {
 		if (data.visibleUsers == null) throw new Error('invalid param');
 
 		for (const u of data.visibleUsers) {
@@ -242,7 +242,7 @@ export default async (user: { id: User['id']; username: User['username']; host: 
 	// Word mute
 	// TODO: cache
 	UserProfiles.find({
-		enableWordMute: true
+		enableWordMute: true,
 	}).then(us => {
 		for (const u of us) {
 			checkWordMute(note, { id: u.userId }, u.mutedWords).then(shouldMute => {
@@ -297,11 +297,10 @@ export default async (user: { id: User['id']; username: User['username']; host: 
 	}
 
 	if (!silent) {
-		// ローカルユーザーのチャートはタイムライン取得時に更新しているのでリモートユーザーの場合だけでよい
-		if (Users.isRemoteUser(user)) activeUsersChart.update(user);
+		if (Users.isLocalUser(user)) activeUsersChart.write(user);
 
 		// 未読通知を作成
-		if (data.visibility == 'specified') {
+		if (data.visibility === 'specified') {
 			if (data.visibleUsers == null) throw new Error('invalid param');
 
 			for (const u of data.visibleUsers) {
@@ -439,7 +438,7 @@ export default async (user: { id: User['id']; username: User['username']; host: 
 async function renderNoteOrRenoteActivity(data: Option, note: Note) {
 	if (data.localOnly) return null;
 
-	const content = data.renote && data.text == null && data.poll == null && (data.files == null || data.files.length == 0)
+	const content = data.renote && data.text == null && data.poll == null && (data.files == null || data.files.length === 0)
 		? renderAnnounce(data.renote.uri ? data.renote.uri : `${config.url}/notes/${data.renote.id}`, note)
 		: renderCreate(await renderNote(note, false), note);
 
@@ -450,7 +449,7 @@ function incRenoteCount(renote: Note) {
 	Notes.createQueryBuilder().update()
 		.set({
 			renoteCount: () => '"renoteCount" + 1',
-			score: () => '"score" + 1'
+			score: () => '"score" + 1',
 		})
 		.where('id = :id', { id: renote.id })
 		.execute();
@@ -478,7 +477,7 @@ async function insertNote(user: { id: User['id']; host: User['host']; }, data: O
 		userId: user.id,
 		localOnly: data.localOnly!,
 		visibility: data.visibility as any,
-		visibleUserIds: data.visibility == 'specified'
+		visibleUserIds: data.visibility === 'specified'
 			? data.visibleUsers
 				? data.visibleUsers.map(u => u.id)
 				: []
@@ -502,13 +501,13 @@ async function insertNote(user: { id: User['id']; host: User['host']; }, data: O
 		insert.mentions = mentionedUsers.map(u => u.id);
 		const profiles = await UserProfiles.find({ userId: In(insert.mentions) });
 		insert.mentionedRemoteUsers = JSON.stringify(mentionedUsers.filter(u => Users.isRemoteUser(u)).map(u => {
-			const profile = profiles.find(p => p.userId == u.id);
+			const profile = profiles.find(p => p.userId === u.id);
 			const url = profile != null ? profile.url : null;
 			return {
 				uri: u.uri,
 				url: url == null ? undefined : url,
 				username: u.username,
-				host: u.host
+				host: u.host,
 			} as IMentionedRemoteUsers[0];
 		}));
 	}
@@ -528,7 +527,7 @@ async function insertNote(user: { id: User['id']; host: User['host']; }, data: O
 					votes: new Array(data.poll!.choices.length).fill(0),
 					noteVisibility: insert.visibility,
 					userId: user.id,
-					userHost: user.host
+					userHost: user.host,
 				});
 
 				await transactionalEntityManager.insert(Poll, poll);
@@ -561,15 +560,15 @@ function index(note: Note) {
 		body: {
 			text: normalizeForSearch(note.text),
 			userId: note.userId,
-			userHost: note.userHost
-		}
+			userHost: note.userHost,
+		},
 	});
 }
 
 async function notifyToWatchersOfRenotee(renote: Note, user: { id: User['id']; }, nm: NotificationManager, type: NotificationType) {
 	const watchers = await NoteWatchings.find({
 		noteId: renote.id,
-		userId: Not(user.id)
+		userId: Not(user.id),
 	});
 
 	for (const watcher of watchers) {
@@ -580,7 +579,7 @@ async function notifyToWatchersOfRenotee(renote: Note, user: { id: User['id']; }
 async function notifyToWatchersOfReplyee(reply: Note, user: { id: User['id']; }, nm: NotificationManager) {
 	const watchers = await NoteWatchings.find({
 		noteId: reply.id,
-		userId: Not(user.id)
+		userId: Not(user.id),
 	});
 
 	for (const watcher of watchers) {
@@ -600,7 +599,7 @@ async function createMentionedEvents(mentionedUsers: User[], note: Note, nm: Not
 		}
 
 		const detailPackedNote = await Notes.pack(note, u, {
-			detail: true
+			detail: true,
 		});
 
 		publishMainStream(u.id, 'mention', detailPackedNote);
@@ -618,7 +617,7 @@ function incNotesCountOfUser(user: { id: User['id']; }) {
 	Users.createQueryBuilder().update()
 		.set({
 			updatedAt: new Date(),
-			notesCount: () => '"notesCount" + 1'
+			notesCount: () => '"notesCount" + 1',
 		})
 		.where('id = :id', { id: user.id })
 		.execute();

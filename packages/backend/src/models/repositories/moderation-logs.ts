@@ -12,12 +12,12 @@ export class ModerationLogRepository extends Repository<ModerationLog> {
 
 		return await awaitAll({
 			id: log.id,
-			createdAt: log.createdAt,
+			createdAt: log.createdAt.toISOString(),
 			type: log.type,
 			info: log.info,
 			userId: log.userId,
 			user: Users.pack(log.user || log.userId, null, {
-				detail: true
+				detail: true,
 			}),
 		});
 	}

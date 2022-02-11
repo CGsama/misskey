@@ -11,7 +11,7 @@ import { Users } from '@/models/index';
 module.exports = (server: http.Server) => {
 	// Init websocket server
 	const ws = new websocket.server({
-		httpServer: server
+		httpServer: server,
 	});
 
 	ws.on('request', async (request) => {
@@ -59,7 +59,7 @@ module.exports = (server: http.Server) => {
 		});
 
 		connection.on('message', async (data) => {
-			if (data.utf8Data === 'ping') {
+			if (data.type === 'utf8' && data.utf8Data === 'ping') {
 				connection.send('pong');
 			}
 		});

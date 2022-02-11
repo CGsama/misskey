@@ -22,9 +22,10 @@ export const meta = {
 		},
 	},
 
-	res: convertLog(notesChart.schema),
-};
+	// TODO: response definition
+} as const;
 
+// eslint-disable-next-line import/no-default-export
 export default define(meta, async (ps) => {
 	return await notesChart.getChart(ps.span as any, ps.limit!, ps.offset ? new Date(ps.offset) : null);
 });

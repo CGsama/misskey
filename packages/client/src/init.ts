@@ -13,8 +13,6 @@ if (localStorage.getItem('accounts') != null) {
 }
 //#endregion
 
-import * as Sentry from '@sentry/browser';
-import { Integrations } from '@sentry/tracing';
 import { computed, createApp, watch, markRaw, version as vueVersion } from 'vue';
 import compareVersions from 'compare-versions';
 
@@ -26,14 +24,15 @@ import { router } from '@/router';
 import { applyTheme } from '@/scripts/theme';
 import { isDeviceDarkmode } from '@/scripts/is-device-darkmode';
 import { i18n } from '@/i18n';
-import { stream, dialog, post, popup } from '@/os';
+import { confirm, alert, post, popup, toast } from '@/os';
+import { stream } from '@/stream';
 import * as sound from '@/scripts/sound';
 import { $i, refreshAccount, login, updateAccount, signout } from '@/account';
 import { defaultStore, ColdDeviceStorage } from '@/store';
 import { fetchInstance, instance } from '@/instance';
 import { makeHotkey } from '@/scripts/hotkey';
 import { search } from '@/scripts/search';
-import { isMobile } from '@/scripts/is-mobile';
+import { deviceKind } from '@/scripts/device-kind';
 import { initializeSw } from '@/scripts/initialize-sw';
 import { reloadChannel } from '@/scripts/unison-reload';
 import { reactionPicker } from '@/scripts/reaction-picker';
@@ -41,10 +40,6 @@ import { getUrlWithoutLoginId } from '@/scripts/login-id';
 import { getAccountFromId } from '@/scripts/get-account-from-id';
 
 console.info(`Misskey v${version}`);
-
-// boot.jsのやつを解除
-window.onerror = null;
-window.onunhandledrejection = null;
 
 if (_DEV_) {
 	console.warn('Development mode!!!');
@@ -57,7 +52,7 @@ if (_DEV_) {
 	window.addEventListener('error', event => {
 		console.error(event);
 		/*
-		dialog({
+		alert({
 			type: 'error',
 			title: 'DEV: Unhandled error',
 			text: event.message
@@ -68,25 +63,13 @@ if (_DEV_) {
 	window.addEventListener('unhandledrejection', event => {
 		console.error(event);
 		/*
-		dialog({
+		alert({
 			type: 'error',
 			title: 'DEV: Unhandled promise rejection',
 			text: event.reason
 		});
 		*/
 	});
-}
-
-if (defaultStore.state.reportError && !_DEV_) {
-	Sentry.init({
-		dsn: 'https://fd273254a07a4b61857607a9ea05d629@o501808.ingest.sentry.io/5583438',
-		tracesSampleRate: 1.0,
-	});
-
-	Sentry.setTag('misskey_version', version);
-	Sentry.setTag('ui', ui);
-	Sentry.setTag('lang', lang);
-	Sentry.setTag('host', host);
 }
 
 // タッチデバイスでCSSの:hoverを機能させる
@@ -109,7 +92,7 @@ window.addEventListener('resize', () => {
 //#endregion
 
 // If mobile, insert the viewport meta tag
-if (isMobile || window.innerWidth <= 1024) {
+if (['smartphone', 'tablet'].includes(deviceKind)) {
 	const viewport = document.getElementsByName('viewport').item(0);
 	viewport.setAttribute('content',
 		`${viewport.getAttribute('content')},minimum-scale=1,maximum-scale=1,user-scalable=no`);
@@ -189,7 +172,6 @@ const app = createApp(await (
 	!$i                               ? import('@/ui/visitor.vue') :
 	ui === 'deck'                     ? import('@/ui/deck.vue') :
 	ui === 'desktop'                  ? import('@/ui/desktop.vue') :
-	ui === 'chat'                     ? import('@/ui/chat/index.vue') :
 	ui === 'classic'                  ? import('@/ui/classic.vue') :
 	import('@/ui/universal.vue')
 ).then(x => x.default));
@@ -203,7 +185,7 @@ app.config.globalProperties = {
 	$store: defaultStore,
 	$instance: instance,
 	$t: i18n.t,
-	$ts: i18n.locale,
+	$ts: i18n.ts,
 };
 
 app.use(router);
@@ -223,6 +205,10 @@ if (splash) splash.addEventListener('transitionend', () => {
 const rootEl = document.createElement('div');
 document.body.appendChild(rootEl);
 app.mount(rootEl);
+
+// boot.jsのやつを解除
+window.onerror = null;
+window.onunhandledrejection = null;
 
 reactionPicker.init();
 
@@ -311,11 +297,10 @@ stream.on('_disconnected_', async () => {
 	} else if (defaultStore.state.serverDisconnectedBehavior === 'dialog') {
 		if (reloadDialogShowing) return;
 		reloadDialogShowing = true;
-		const { canceled } = await dialog({
+		const { canceled } = await confirm({
 			type: 'warning',
-			title: i18n.locale.disconnectedFromServer,
-			text: i18n.locale.reloadConfirm,
-			showCancelButton: true
+			title: i18n.ts.disconnectedFromServer,
+			text: i18n.ts.reloadConfirm,
 		});
 		reloadDialogShowing = false;
 		if (!canceled) {
@@ -337,11 +322,23 @@ for (const plugin of ColdDeviceStorage.get('plugins').filter(p => p.active)) {
 
 if ($i) {
 	if ($i.isDeleted) {
-		dialog({
+		alert({
 			type: 'warning',
-			text: i18n.locale.accountDeletionInProgress,
+			text: i18n.ts.accountDeletionInProgress,
 		});
 	}
+
+	const lastUsed = localStorage.getItem('lastUsed');
+	if (lastUsed) {
+		const lastUsedDate = parseInt(lastUsed, 10);
+		// 二時間以上前なら
+		if (Date.now() - lastUsedDate > 1000 * 60 * 60 * 2) {
+			toast(i18n.t('welcomeBackWithName', {
+				name: $i.name || $i.username,
+			}));
+		}
+	}
+	localStorage.setItem('lastUsed', Date.now().toString());
 
 	if ('Notification' in window) {
 		// 許可を得ていなかったらリクエスト

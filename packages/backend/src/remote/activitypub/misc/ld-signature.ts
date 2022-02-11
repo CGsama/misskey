@@ -20,11 +20,11 @@ export class LdSignature {
 			creator,
 			domain,
 			nonce: crypto.randomBytes(16).toString('hex'),
-			created: (created || new Date()).toISOString()
+			created: (created || new Date()).toISOString(),
 		} as {
 			type: string;
 			creator: string;
-			domain: string;
+			domain?: string;
 			nonce: string;
 			created: string;
 		};
@@ -45,8 +45,8 @@ export class LdSignature {
 			...data,
 			signature: {
 				...options,
-				signatureValue: signature.toString('base64')
-			}
+				signatureValue: signature.toString('base64'),
+			},
 		};
 	}
 
@@ -60,7 +60,7 @@ export class LdSignature {
 	public async createVerifyData(data: any, options: any) {
 		const transformedOptions = {
 			...options,
-			'@context': 'https://w3id.org/identity/v1'
+			'@context': 'https://w3id.org/identity/v1',
 		};
 		delete transformedOptions['type'];
 		delete transformedOptions['id'];
@@ -79,7 +79,7 @@ export class LdSignature {
 	public async normalize(data: any) {
 		const customLoader = this.getLoader();
 		return await jsonld.normalize(data, {
-			documentLoader: customLoader
+			documentLoader: customLoader,
 		});
 	}
 
@@ -93,7 +93,7 @@ export class LdSignature {
 					return {
 						contextUrl: null,
 						document: CONTEXTS[url],
-						documentUrl: url
+						documentUrl: url,
 					};
 				}
 			}
@@ -103,7 +103,7 @@ export class LdSignature {
 			return {
 				contextUrl: null,
 				document: document,
-				documentUrl: url
+				documentUrl: url,
 			};
 		};
 	}
@@ -114,7 +114,7 @@ export class LdSignature {
 				Accept: 'application/ld+json, application/json',
 			},
 			timeout: this.loderTimeout,
-			agent: u => u.protocol == 'http:' ? httpAgent : httpsAgent,
+			agent: u => u.protocol === 'http:' ? httpAgent : httpsAgent,
 		}).then(res => {
 			if (!res.ok) {
 				throw `${res.status} ${res.statusText}`;

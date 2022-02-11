@@ -5,9 +5,7 @@ import { URL } from 'url';
 const urlRegex     = /^https?:\/\/[\w\/:%#@$&?!()\[\]~.,=+\-]+/;
 const urlRegexFull = /^https?:\/\/[\w\/:%#@$&?!()\[\]~.,=+\-]+$/;
 
-export function fromHtml(html: string, hashtagNames?: string[]): string | null {
-	if (html == null) return null;
-
+export function fromHtml(html: string, hashtagNames?: string[]): string {
 	const dom = parse5.parseFragment(html);
 
 	let text = '';
@@ -168,7 +166,7 @@ export function fromHtml(html: string, hashtagNames?: string[]): string | null {
 			case 'blockquote': {
 				const t = getText(node);
 				if (t) {
-					text += '> ';
+					text += '\n> ';
 					text += t.split('\n').join(`\n> `);
 				}
 				break;

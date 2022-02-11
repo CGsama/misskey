@@ -3,9 +3,8 @@ import { i18n } from '@/i18n';
 import { router } from '@/router';
 
 export async function search() {
-	const { canceled, result: query } = await os.dialog({
-		title: i18n.locale.search,
-		input: true
+	const { canceled, result: query } = await os.inputText({
+		title: i18n.ts.search,
 	});
 	if (canceled || query == null || query === '') return;
 
@@ -35,7 +34,7 @@ export async function search() {
 
 		// TODO
 		//v.$root.$emit('warp', date);
-		os.dialog({
+		os.alert({
 			icon: 'fas fa-history',
 			iconOnly: true, autoClose: true
 		});
@@ -47,7 +46,7 @@ export async function search() {
 			uri: q
 		});
 
-		os.promiseDialog(promise, null, null, i18n.locale.fetchingAsApObject);
+		os.promiseDialog(promise, null, null, i18n.ts.fetchingAsApObject);
 
 		const res = await promise;
 

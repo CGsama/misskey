@@ -1,41 +1,35 @@
 <template>
-<FormBase>
+<div class="_formRoot">
 	<FormSuspense :p="init">
-		<FormButton @click="addAccount" primary><i class="fas fa-plus"></i> {{ $ts.addAccount }}</FormButton>
+		<FormButton primary @click="addAccount"><i class="fas fa-plus"></i> {{ $ts.addAccount }}</FormButton>
 
-		<div class="_debobigegoItem _button" v-for="account in accounts" :key="account.id" @click="menu(account, $event)">
-			<div class="_debobigegoPanel lcjjdxlm">
-				<div class="avatar">
-					<MkAvatar :user="account" class="avatar"/>
+		<div v-for="account in accounts" :key="account.id" class="_panel _button lcjjdxlm" @click="menu(account, $event)">
+			<div class="avatar">
+				<MkAvatar :user="account" class="avatar"/>
+			</div>
+			<div class="body">
+				<div class="name">
+					<MkUserName :user="account"/>
 				</div>
-				<div class="body">
-					<div class="name">
-						<MkUserName :user="account"/>
-					</div>
-					<div class="acct">
-						<MkAcct :user="account"/>
-					</div>
+				<div class="acct">
+					<MkAcct :user="account"/>
 				</div>
 			</div>
 		</div>
 	</FormSuspense>
-</FormBase>
+</div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import FormSuspense from '@/components/debobigego/suspense.vue';
-import FormLink from '@/components/debobigego/link.vue';
-import FormBase from '@/components/debobigego/base.vue';
-import FormGroup from '@/components/debobigego/group.vue';
-import FormButton from '@/components/debobigego/button.vue';
+import FormSuspense from '@/components/form/suspense.vue';
+import FormButton from '@/components/ui/button.vue';
 import * as os from '@/os';
 import * as symbols from '@/symbols';
 import { getAccounts, addAccount, login } from '@/account';
 
 export default defineComponent({
 	components: {
-		FormBase,
 		FormSuspense,
 		FormButton,
 	},
@@ -59,10 +53,6 @@ export default defineComponent({
 		};
 	},
 
-	mounted() {
-		this.$emit('info', this[symbols.PAGE_INFO]);
-	},
-
 	methods: {
 		menu(account, ev) {
 			os.popupMenu([{
@@ -74,7 +64,7 @@ export default defineComponent({
 				icon: 'fas fa-trash-alt',
 				danger: true,
 				action: () => this.removeAccount(account),
-			}], ev.currentTarget || ev.target);
+			}], ev.currentTarget ?? ev.target);
 		},
 
 		addAccount(ev) {
@@ -84,7 +74,7 @@ export default defineComponent({
 			}, {
 				text: this.$ts.createAccount,
 				action: () => { this.createAccount(); },
-			}], ev.currentTarget || ev.target);
+			}], ev.currentTarget ?? ev.target);
 		},
 
 		addExistingAccount() {

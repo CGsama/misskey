@@ -6,7 +6,8 @@ import { envOption } from '../env';
 import processDeliver from './processors/deliver';
 import processInbox from './processors/inbox';
 import processDb from './processors/db/index';
-import procesObjectStorage from './processors/object-storage/index';
+import processObjectStorage from './processors/object-storage/index';
+import processSystemQueue from './processors/system/index';
 import { queueLogger } from './logger';
 import { DriveFile } from '@/models/entities/drive-file';
 import { getJobInfo } from './get-job-info';
@@ -18,7 +19,7 @@ function renderError(e: Error): any {
 	return {
 		stack: e?.stack,
 		message: e?.message,
-		name: e?.name
+		name: e?.name,
 	};
 }
 
@@ -74,157 +75,178 @@ export function deliver(user: ThinUser, content: unknown, to: string | null) {
 
 	const data = {
 		user: {
-			id: user.id
+			id: user.id,
 		},
 		content,
-		to
+		to,
 	};
 
 	return deliverQueue.add(data, {
 		attempts: config.deliverJobMaxAttempts || 12,
 		timeout: 1 * 60 * 1000,	// 1min
 		backoff: {
-			type: 'apBackoff'
+			type: 'apBackoff',
 		},
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function inbox(activity: IActivity, signature: httpSignature.IParsedSignature) {
 	const data = {
 		activity: activity,
-		signature
+		signature,
 	};
 
 	return inboxQueue.add(data, {
 		attempts: config.inboxJobMaxAttempts || 8,
 		timeout: 5 * 60 * 1000,	// 5min
 		backoff: {
-			type: 'apBackoff'
+			type: 'apBackoff',
 		},
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createDeleteDriveFilesJob(user: ThinUser) {
 	return dbQueue.add('deleteDriveFiles', {
-		user: user
+		user: user,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
+	});
+}
+
+export function createExportCustomEmojisJob(user: ThinUser) {
+	return dbQueue.add('exportCustomEmojis', {
+		user: user,
+	}, {
+		removeOnComplete: true,
+		removeOnFail: true,
 	});
 }
 
 export function createExportNotesJob(user: ThinUser) {
 	return dbQueue.add('exportNotes', {
-		user: user
+		user: user,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
-export function createExportFollowingJob(user: ThinUser) {
+export function createExportFollowingJob(user: ThinUser, excludeMuting = false, excludeInactive = false) {
 	return dbQueue.add('exportFollowing', {
-		user: user
+		user: user,
+		excludeMuting,
+		excludeInactive,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createExportMuteJob(user: ThinUser) {
 	return dbQueue.add('exportMute', {
-		user: user
+		user: user,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createExportBlockingJob(user: ThinUser) {
 	return dbQueue.add('exportBlocking', {
-		user: user
+		user: user,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createExportUserListsJob(user: ThinUser) {
 	return dbQueue.add('exportUserLists', {
-		user: user
+		user: user,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createImportFollowingJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importFollowing', {
 		user: user,
-		fileId: fileId
+		fileId: fileId,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createImportMutingJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importMuting', {
 		user: user,
-		fileId: fileId
+		fileId: fileId,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createImportBlockingJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importBlocking', {
 		user: user,
-		fileId: fileId
+		fileId: fileId,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createImportUserListsJob(user: ThinUser, fileId: DriveFile['id']) {
 	return dbQueue.add('importUserLists', {
 		user: user,
-		fileId: fileId
+		fileId: fileId,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
+	});
+}
+
+export function createImportCustomEmojisJob(user: ThinUser, fileId: DriveFile['id']) {
+	return dbQueue.add('importCustomEmojis', {
+		user: user,
+		fileId: fileId,
+	}, {
+		removeOnComplete: true,
+		removeOnFail: true,
 	});
 }
 
 export function createDeleteAccountJob(user: ThinUser, opts: { soft?: boolean; } = {}) {
 	return dbQueue.add('deleteAccount', {
 		user: user,
-		soft: opts.soft
+		soft: opts.soft,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createDeleteObjectStorageFileJob(key: string) {
 	return objectStorageQueue.add('deleteFile', {
-		key: key
+		key: key,
 	}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
 export function createCleanRemoteFilesJob() {
 	return objectStorageQueue.add('cleanRemoteFiles', {}, {
 		removeOnComplete: true,
-		removeOnFail: true
+		removeOnFail: true,
 	});
 }
 
@@ -234,12 +256,19 @@ export default function() {
 	deliverQueue.process(config.deliverJobConcurrency || 128, processDeliver);
 	inboxQueue.process(config.inboxJobConcurrency || 16, processInbox);
 	processDb(dbQueue);
-	procesObjectStorage(objectStorageQueue);
+	processObjectStorage(objectStorageQueue);
 
 	systemQueue.add('resyncCharts', {
 	}, {
-		repeat: { cron: '0 0 * * *' }
+		repeat: { cron: '0 0 * * *' },
 	});
+
+	systemQueue.add('cleanCharts', {
+	}, {
+		repeat: { cron: '0 0 * * *' },
+	});
+
+	processSystemQueue(systemQueue);
 }
 
 export function destroy() {

@@ -1,16 +1,20 @@
 <template>
-<transition :name="$store.state.animation ? popup ? 'modal-popup' : 'modal' : ''" :duration="$store.state.animation ? popup ? 500 : 300 : 0" appear @after-leave="onClosed" @enter="$emit('opening')" @after-enter="childRendered">
-	<div v-show="manualShowing != null ? manualShowing : showing" class="qzhlnise" :class="{ front }" v-hotkey.global="keymap" :style="{ pointerEvents: (manualShowing != null ? manualShowing : showing) ? 'auto' : 'none', '--transformOrigin': transformOrigin }">
-		<div class="bg _modalBg" @click="onBgClick" @contextmenu.prevent.stop="() => {}"></div>
-		<div class="content" :class="{ popup, fixed, top: position === 'top' }" @click.self="onBgClick" ref="content">
-			<slot></slot>
+<transition :name="$store.state.animation ? (type === 'drawer') ? 'modal-drawer' : (type === 'popup') ? 'modal-popup' : 'modal' : ''" :duration="$store.state.animation ? 200 : 0" appear @after-leave="emit('closed')" @enter="emit('opening')" @after-enter="childRendered">
+	<div v-show="manualShowing != null ? manualShowing : showing" v-hotkey.global="keymap" class="qzhlnise" :class="{ drawer: type === 'drawer', dialog: type === 'dialog' || type === 'dialog:top', popup: type === 'popup' }" :style="{ zIndex, pointerEvents: (manualShowing != null ? manualShowing : showing) ? 'auto' : 'none', '--transformOrigin': transformOrigin }">
+		<div class="bg _modalBg" :class="{ transparent: transparentBg && (type === 'popup') }" :style="{ zIndex }" @click="onBgClick" @contextmenu.prevent.stop="() => {}"></div>
+		<div ref="content" class="content" :class="{ fixed, top: type === 'dialog:top' }" :style="{ zIndex }" @click.self="onBgClick">
+			<slot :max-height="maxHeight" :type="type"></slot>
 		</div>
 	</div>
 </transition>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
+import { nextTick, onMounted, computed, ref, watch, provide } from 'vue';
+import * as os from '@/os';
+import { isTouchUsing } from '@/scripts/touch';
+import { defaultStore } from '@/store';
+import { deviceKind } from '@/scripts/device-kind';
 
 function getFixedContainer(el: Element | null): Element | null {
 	if (el == null || el.tagName === 'BODY') return null;
@@ -22,178 +26,218 @@ function getFixedContainer(el: Element | null): Element | null {
 	}
 }
 
-export default defineComponent({
-	provide: {
-		modal: true
-	},
-	props: {
-		manualShowing: {
-			type: Boolean,
-			required: false,
-			default: null,
-		},
-		srcCenter: {
-			type: Boolean,
-			required: false
-		},
-		src: {
-			required: false,
-		},
-		position: {
-			required: false
-		},
-		front: {
-			type: Boolean,
-			required: false,
-			default: false,
+type ModalTypes = 'popup' | 'dialog' | 'dialog:top' | 'drawer';
+
+const props = withDefaults(defineProps<{
+	manualShowing?: boolean | null;
+	srcCenter?: boolean;
+	src?: HTMLElement;
+	preferType?: ModalTypes | 'auto';
+	zPriority?: 'low' | 'middle' | 'high';
+	noOverlap?: boolean;
+	transparentBg?: boolean;
+}>(), {
+	manualShowing: null,
+	src: null,
+	preferType: 'auto',
+	zPriority: 'low',
+	noOverlap: true,
+	transparentBg: false,
+});
+
+const emit = defineEmits<{
+	(ev: 'opening'): void;
+	(ev: 'click'): void;
+	(ev: 'esc'): void;
+	(ev: 'close'): void;
+	(ev: 'closed'): void;
+}>();
+
+provide('modal', true);
+
+const maxHeight = ref<number>();
+const fixed = ref(false);
+const transformOrigin = ref('center');
+const showing = ref(true);
+const content = ref<HTMLElement>();
+const zIndex = os.claimZIndex(props.zPriority);
+const type = computed(() => {
+	if (props.preferType === 'auto') {
+		if (!defaultStore.state.disableDrawer && isTouchUsing && deviceKind === 'smartphone') {
+			return 'drawer';
+		} else {
+			return props.src != null ? 'popup' : 'dialog';
 		}
-	},
-	emits: ['opening', 'click', 'esc', 'close', 'closed'],
-	data() {
-		return {
-			showing: true,
-			fixed: false,
-			transformOrigin: 'center',
-			contentClicking: false,
-		};
-	},
-	computed: {
-		keymap(): any {
-			return {
-				'esc': () => this.$emit('esc'),
-			};
-		},
-		popup(): boolean {
-			return this.src != null;
-		}
-	},
-	mounted() {
-		this.$watch('src', () => {
-			this.fixed = getFixedContainer(this.src) != null;
-			this.$nextTick(() => {
-				this.align();
-			});
-		}, { immediate: true });
-
-		this.$nextTick(() => {
-			const popover = this.$refs.content as any;
-			new ResizeObserver((entries, observer) => {
-				this.align();
-			}).observe(popover);
-		});
-	},
-	methods: {
-		align() {
-			if (!this.popup) return;
-
-			const popover = this.$refs.content as any;
-
-			if (popover == null) return;
-
-			const rect = this.src.getBoundingClientRect();
-			
-			const width = popover.offsetWidth;
-			const height = popover.offsetHeight;
-
-			let left;
-			let top;
-
-			if (this.srcCenter) {
-				const x = rect.left + (this.fixed ? 0 : window.pageXOffset) + (this.src.offsetWidth / 2);
-				const y = rect.top + (this.fixed ? 0 : window.pageYOffset) + (this.src.offsetHeight / 2);
-				left = (x - (width / 2));
-				top = (y - (height / 2));
-			} else {
-				const x = rect.left + (this.fixed ? 0 : window.pageXOffset) + (this.src.offsetWidth / 2);
-				const y = rect.top + (this.fixed ? 0 : window.pageYOffset) + this.src.offsetHeight;
-				left = (x - (width / 2));
-				top = y;
-			}
-
-			if (this.fixed) {
-				if (left + width > window.innerWidth) {
-					left = window.innerWidth - width;
-				}
-
-				if (top + height > window.innerHeight) {
-					top = window.innerHeight - height;
-				}
-			} else {
-				if (left + width - window.pageXOffset > window.innerWidth) {
-					left = window.innerWidth - width + window.pageXOffset - 1;
-				}
-
-				if (top + height - window.pageYOffset > window.innerHeight) {
-					top = window.innerHeight - height + window.pageYOffset - 1;
-				}
-			}
-
-			if (top < 0) {
-				top = 0;
-			}
-
-			if (left < 0) {
-				left = 0;
-			}
-
-			if (top > rect.top + (this.fixed ? 0 : window.pageYOffset)) {
-				this.transformOrigin = 'center top';
-			} else {
-				this.transformOrigin = 'center';
-			}
-
-			popover.style.left = left + 'px';
-			popover.style.top = top + 'px';
-		},
-
-		childRendered() {
-			// モーダルコンテンツにマウスボタンが押され、コンテンツ外でマウスボタンが離されたときにモーダルバックグラウンドクリックと判定させないためにマウスイベントを監視しフラグ管理する
-			const content = this.$refs.content.children[0];
-			content.addEventListener('mousedown', e => {
-				this.contentClicking = true;
-				window.addEventListener('mouseup', e => {
-					// click イベントより先に mouseup イベントが発生するかもしれないのでちょっと待つ
-					setTimeout(() => {
-						this.contentClicking = false;
-					}, 100);
-				}, { passive: true, once: true });
-			}, { passive: true });
-		},
-
-		close() {
-			this.showing = false;
-			this.$emit('close');
-		},
-
-		onBgClick() {
-			if (this.contentClicking) return;
-			this.$emit('click');
-		},
-
-		onClosed() {
-			this.$emit('closed');
-		}
+	} else {
+		return props.preferType!;
 	}
 });
-</script>
 
-<style lang="scss">
-.modal-popup-enter-active, .modal-popup-leave-active,
-.modal-enter-from, .modal-leave-to {
-	> .content {
-		transform-origin: var(--transformOrigin);
-	}
+let contentClicking = false;
+
+const close = () => {
+	// eslint-disable-next-line vue/no-mutating-props
+	if (props.src) props.src.style.pointerEvents = 'auto';
+	showing.value = false;
+	emit('close');
+};
+
+const onBgClick = () => {
+	if (contentClicking) return;
+	emit('click');
+};
+
+if (type.value === 'drawer') {
+	maxHeight.value = window.innerHeight / 2;
 }
-</style>
+
+const keymap = {
+	'esc': () => emit('esc'),
+};
+
+const MARGIN = 16;
+
+const align = () => {
+	if (props.src == null) return;
+	if (type.value === 'drawer') return;
+
+	const popover = content.value!;
+
+	if (popover == null) return;
+
+	const rect = props.src.getBoundingClientRect();
+	
+	const width = popover.offsetWidth;
+	const height = popover.offsetHeight;
+
+	let left;
+	let top;
+
+	if (props.srcCenter) {
+		const x = rect.left + (fixed.value ? 0 : window.pageXOffset) + (props.src.offsetWidth / 2);
+		const y = rect.top + (fixed.value ? 0 : window.pageYOffset) + (props.src.offsetHeight / 2);
+		left = (x - (width / 2));
+		top = (y - (height / 2));
+	} else {
+		const x = rect.left + (fixed.value ? 0 : window.pageXOffset) + (props.src.offsetWidth / 2);
+		const y = rect.top + (fixed.value ? 0 : window.pageYOffset) + props.src.offsetHeight;
+		left = (x - (width / 2));
+		top = y;
+	}
+
+	if (fixed.value) {
+		// 画面から横にはみ出る場合
+		if (left + width > window.innerWidth) {
+			left = window.innerWidth - width;
+		}
+
+		// 画面から縦にはみ出る場合
+		if (top + height > (window.innerHeight - MARGIN)) {
+			if (props.noOverlap) {
+				const underSpace = (window.innerHeight - MARGIN) - top;
+				const upperSpace = (rect.top - MARGIN);
+				if (underSpace >= (upperSpace / 3)) {
+					maxHeight.value =  underSpace;
+				} else {
+					maxHeight.value =  upperSpace;
+					top = (upperSpace + MARGIN) - height;
+				}
+			} else {
+				top = (window.innerHeight - MARGIN) - height;
+			}
+		}
+	} else {
+		// 画面から横にはみ出る場合
+		if (left + width - window.pageXOffset > window.innerWidth) {
+			left = window.innerWidth - width + window.pageXOffset - 1;
+		}
+
+		// 画面から縦にはみ出る場合
+		if (top + height - window.pageYOffset > (window.innerHeight - MARGIN)) {
+			if (props.noOverlap) {
+				const underSpace = (window.innerHeight - MARGIN) - (top - window.pageYOffset);
+				const upperSpace = (rect.top - MARGIN);
+				if (underSpace >= (upperSpace / 3)) {
+					maxHeight.value =  underSpace;
+				} else {
+					maxHeight.value =  upperSpace;
+					top = window.pageYOffset + ((upperSpace + MARGIN) - height);
+				}
+			} else {
+				top = (window.innerHeight - MARGIN) - height + window.pageYOffset - 1;
+			}
+		}
+	}
+
+	if (top < 0) {
+		top = MARGIN;
+	}
+
+	if (left < 0) {
+		left = 0;
+	}
+
+	if (top > rect.top + (fixed.value ? 0 : window.pageYOffset)) {
+		transformOrigin.value = 'center top';
+	} else if ((top + height) <= rect.top + (fixed.value ? 0 : window.pageYOffset)) {
+		transformOrigin.value = 'center bottom';
+	} else {
+		transformOrigin.value = 'center';
+	}
+
+	popover.style.left = left + 'px';
+	popover.style.top = top + 'px';
+};
+
+const childRendered = () => {
+	// モーダルコンテンツにマウスボタンが押され、コンテンツ外でマウスボタンが離されたときにモーダルバックグラウンドクリックと判定させないためにマウスイベントを監視しフラグ管理する
+	const el = content.value!.children[0];
+	el.addEventListener('mousedown', ev => {
+		contentClicking = true;
+		window.addEventListener('mouseup', ev => {
+			// click イベントより先に mouseup イベントが発生するかもしれないのでちょっと待つ
+			window.setTimeout(() => {
+				contentClicking = false;
+			}, 100);
+		}, { passive: true, once: true });
+	}, { passive: true });
+};
+
+onMounted(() => {
+	watch(() => props.src, async () => {
+		if (props.src) {
+			// eslint-disable-next-line vue/no-mutating-props
+			props.src.style.pointerEvents = 'none';
+		}
+		fixed.value = (type.value === 'drawer') || (getFixedContainer(props.src) != null);
+
+		await nextTick()
+		
+		align();
+	}, { immediate: true, });
+
+	nextTick(() => {
+		const popover = content.value;
+		new ResizeObserver((entries, observer) => {
+			align();
+		}).observe(popover!);
+	});
+});
+
+defineExpose({
+	close,
+});
+</script>
 
 <style lang="scss" scoped>
 .modal-enter-active, .modal-leave-active {
 	> .bg {
-		transition: opacity 0.3s !important;
+		transition: opacity 0.2s !important;
 	}
 
 	> .content {
-		transition: opacity 0.3s, transform 0.3s !important;
+		transform-origin: var(--transformOrigin);
+		transition: opacity 0.2s, transform 0.2s !important;
 	}
 }
 .modal-enter-from, .modal-leave-to {
@@ -204,17 +248,19 @@ export default defineComponent({
 	> .content {
 		pointer-events: none;
 		opacity: 0;
+		transform-origin: var(--transformOrigin);
 		transform: scale(0.9);
 	}
 }
 
 .modal-popup-enter-active, .modal-popup-leave-active {
 	> .bg {
-		transition: opacity 0.3s !important;
+		transition: opacity 0.2s !important;
 	}
 
 	> .content {
-		transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+		transform-origin: var(--transformOrigin);
+		transition: opacity 0.2s cubic-bezier(0, 0, 0.2, 1), transform 0.2s cubic-bezier(0, 0, 0.2, 1) !important;
 	}
 }
 .modal-popup-enter-from, .modal-popup-leave-to {
@@ -225,68 +271,112 @@ export default defineComponent({
 	> .content {
 		pointer-events: none;
 		opacity: 0;
+		transform-origin: var(--transformOrigin);
 		transform: scale(0.9);
+	}
+}
+
+.modal-drawer-enter-active {
+	> .bg {
+		transition: opacity 0.2s !important;
+	}
+
+	> .content {
+		transition: transform 0.2s cubic-bezier(0,.5,0,1) !important;
+	}
+}
+.modal-drawer-leave-active {
+	> .bg {
+		transition: opacity 0.2s !important;
+	}
+
+	> .content {
+		transition: transform 0.2s cubic-bezier(0,.5,0,1) !important;
+	}
+}
+.modal-drawer-enter-from, .modal-drawer-leave-to {
+	> .bg {
+		opacity: 0;
+	}
+
+	> .content {
+		pointer-events: none;
+		transform: translateY(100%);
 	}
 }
 
 .qzhlnise {
 	> .bg {
-		z-index: 10000;
+		&.transparent {
+			background: transparent;
+			-webkit-backdrop-filter: none;
+			backdrop-filter: none;
+		}
 	}
 
-	> .content:not(.popup) {
-		position: fixed;
-		z-index: 10000;
-		top: 0;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		margin: auto;
-		padding: 32px;
-		// TODO: mask-imageはiOSだとやたら重い。なんとかしたい
-		-webkit-mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 32px, rgba(0,0,0,1) calc(100% - 32px), rgba(0,0,0,0) 100%);
-		mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 32px, rgba(0,0,0,1) calc(100% - 32px), rgba(0,0,0,0) 100%);
-		overflow: auto;
-		display: flex;
-
-		@media (max-width: 500px) {
-			padding: 16px;
-			-webkit-mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 16px, rgba(0,0,0,1) calc(100% - 16px), rgba(0,0,0,0) 100%);
-			mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 16px, rgba(0,0,0,1) calc(100% - 16px), rgba(0,0,0,0) 100%);
-		}
-
-		> ::v-deep(*) {
+	&.dialog {
+		> .content {
+			position: fixed;
+			top: 0;
+			bottom: 0;
+			left: 0;
+			right: 0;
 			margin: auto;
-		}
+			padding: 32px;
+			// TODO: mask-imageはiOSだとやたら重い。なんとかしたい
+			-webkit-mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 32px, rgba(0,0,0,1) calc(100% - 32px), rgba(0,0,0,0) 100%);
+			mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 32px, rgba(0,0,0,1) calc(100% - 32px), rgba(0,0,0,0) 100%);
+			overflow: auto;
+			display: flex;
 
-		&.top {
+			@media (max-width: 500px) {
+				padding: 16px;
+				-webkit-mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 16px, rgba(0,0,0,1) calc(100% - 16px), rgba(0,0,0,0) 100%);
+				mask-image: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 16px, rgba(0,0,0,1) calc(100% - 16px), rgba(0,0,0,0) 100%);
+			}
+
 			> ::v-deep(*) {
-				margin-top: 0;
+				margin: auto;
+			}
+
+			&.top {
+				> ::v-deep(*) {
+					margin-top: 0;
+				}
 			}
 		}
 	}
 
-	> .content.popup {
-		position: absolute;
-		z-index: 10000;
+	&.popup {
+		> .content {
+			position: absolute;
 
-		&.fixed {
+			&.fixed {
+				position: fixed;
+			}
+		}
+	}
+
+	&.drawer {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		overflow: clip;
+
+		> .content {
 			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			margin: auto;
+
+			> ::v-deep(*) {
+				margin: auto;
+			}
 		}
 	}
 
-	&.front {
-		> .bg {
-			z-index: 20000;
-		}
-
-		> .content:not(.popup) {
-			z-index: 20000;
-		}
-
-		> .content.popup {
-			z-index: 20000;
-		}
-	}
 }
 </style>

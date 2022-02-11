@@ -4,7 +4,7 @@ import request from '@/remote/activitypub/request';
 import { registerOrFetchInstanceDoc } from '@/services/register-or-fetch-instance-doc';
 import Logger from '@/services/logger';
 import { Instances } from '@/models/index';
-import { instanceChart } from '@/services/chart/index';
+import { apRequestChart, federationChart, instanceChart } from '@/services/chart/index';
 import { fetchInstanceMetadata } from '@/services/fetch-instance-metadata';
 import { fetchMeta } from '@/misc/fetch-meta';
 import { toPuny } from '@/misc/convert-host';
@@ -33,7 +33,7 @@ export default async (job: Bull.Job<DeliverJobData>) => {
 	if (suspendedHosts == null) {
 		suspendedHosts = await Instances.find({
 			where: {
-				isSuspended: true
+				isSuspended: true,
 			},
 		});
 		suspendedHostsCache.set(null, suspendedHosts);
@@ -55,12 +55,14 @@ export default async (job: Bull.Job<DeliverJobData>) => {
 				latestRequestSentAt: new Date(),
 				latestStatus: 200,
 				lastCommunicatedAt: new Date(),
-				isNotResponding: false
+				isNotResponding: false,
 			});
 
 			fetchInstanceMetadata(i);
 
 			instanceChart.requestSent(i.host, true);
+			apRequestChart.deliverSucc();
+			federationChart.deliverd(i.host, true);
 		});
 
 		return 'Success';
@@ -70,10 +72,12 @@ export default async (job: Bull.Job<DeliverJobData>) => {
 			Instances.update(i.id, {
 				latestRequestSentAt: new Date(),
 				latestStatus: res instanceof StatusError ? res.statusCode : null,
-				isNotResponding: true
+				isNotResponding: true,
 			});
 
 			instanceChart.requestSent(i.host, false);
+			apRequestChart.deliverFail();
+			federationChart.deliverd(i.host, false);
 		});
 
 		if (res instanceof StatusError) {

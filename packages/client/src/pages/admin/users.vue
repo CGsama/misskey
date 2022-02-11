@@ -30,23 +30,23 @@
 				<template #prefix>@</template>
 				<template #label>{{ $ts.username }}</template>
 			</MkInput>
-			<MkInput v-model="searchHost" style="flex: 1;" type="text" spellcheck="false" @update:modelValue="$refs.users.reload()" :disabled="pagination.params().origin === 'local'">
+			<MkInput v-model="searchHost" style="flex: 1;" type="text" spellcheck="false" :disabled="pagination.params.origin === 'local'" @update:modelValue="$refs.users.reload()">
 				<template #prefix>@</template>
 				<template #label>{{ $ts.host }}</template>
 			</MkInput>
 		</div>
 
-		<MkPagination :pagination="pagination" #default="{items}" class="users" ref="users">
-			<button class="user _panel _button _gap" v-for="user in items" :key="user.id" @click="show(user)">
+		<MkPagination v-slot="{items}" ref="paginationComponent" :pagination="pagination" class="users">
+			<button v-for="user in items" :key="user.id" class="user _panel _button _gap" @click="show(user)">
 				<MkAvatar class="avatar" :user="user" :disable-link="true" :show-indicator="true"/>
 				<div class="body">
 					<header>
 						<MkUserName class="name" :user="user"/>
 						<span class="acct">@{{ acct(user) }}</span>
-						<span class="staff" v-if="user.isAdmin"><i class="fas fa-bookmark"></i></span>
-						<span class="staff" v-if="user.isModerator"><i class="far fa-bookmark"></i></span>
-						<span class="punished" v-if="user.isSilenced"><i class="fas fa-microphone-slash"></i></span>
-						<span class="punished" v-if="user.isSuspended"><i class="fas fa-snowflake"></i></span>
+						<span v-if="user.isAdmin" class="staff"><i class="fas fa-bookmark"></i></span>
+						<span v-if="user.isModerator" class="staff"><i class="far fa-bookmark"></i></span>
+						<span v-if="user.isSilenced" class="punished"><i class="fas fa-microphone-slash"></i></span>
+						<span v-if="user.isSuspended" class="punished"><i class="fas fa-snowflake"></i></span>
 					</header>
 					<div>
 						<span>{{ $ts.lastUsed }}: <MkTime v-if="user.updatedAt" :time="user.updatedAt" mode="detail"/></span>
@@ -61,9 +61,8 @@
 </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-import MkButton from '@/components/ui/button.vue';
+<script lang="ts" setup>
+import { computed } from 'vue';
 import MkInput from '@/components/form/input.vue';
 import MkSelect from '@/components/form/select.vue';
 import MkPagination from '@/components/ui/pagination.vue';
@@ -71,111 +70,79 @@ import { acct } from '@/filters/user';
 import * as os from '@/os';
 import * as symbols from '@/symbols';
 import { lookupUser } from '@/scripts/lookup-user';
+import { i18n } from '@/i18n';
 
-export default defineComponent({
-	components: {
-		MkButton,
-		MkInput,
-		MkSelect,
-		MkPagination,
-	},
+let paginationComponent = $ref<InstanceType<typeof MkPagination>>();
 
-	emits: ['info'],
+let sort = $ref('+createdAt');
+let state = $ref('all');
+let origin = $ref('local');
+let searchUsername = $ref('');
+let searchHost = $ref('');
+const pagination = {
+	endpoint: 'admin/show-users' as const,
+	limit: 10,
+	params: computed(() => ({
+		sort: sort,
+		state: state,
+		origin: origin,
+		username: searchUsername,
+		hostname: searchHost,
+	})),
+	offsetMode: true
+};
 
-	data() {
-		return {
-			[symbols.PAGE_INFO]: {
-				title: this.$ts.users,
-				icon: 'fas fa-users',
-				bg: 'var(--bg)',
-				actions: [{
-					icon: 'fas fa-search',
-					text: this.$ts.search,
-					handler: this.searchUser
-				}, {
-					asFullButton: true,
-					icon: 'fas fa-plus',
-					text: this.$ts.addUser,
-					handler: this.addUser
-				}, {
-					asFullButton: true,
-					icon: 'fas fa-search',
-					text: this.$ts.lookup,
-					handler: this.lookupUser
-				}],
-			},
-			sort: '+createdAt',
-			state: 'all',
-			origin: 'local',
-			searchUsername: '',
-			searchHost: '',
-			pagination: {
-				endpoint: 'admin/show-users',
-				limit: 10,
-				params: () => ({
-					sort: this.sort,
-					state: this.state,
-					origin: this.origin,
-					username: this.searchUsername,
-					hostname: this.searchHost,
-				}),
-				offsetMode: true
-			},
-		}
-	},
+function searchUser() {
+	os.selectUser().then(user => {
+		show(user);
+	});
+}
 
-	watch: {
-		sort() {
-			this.$refs.users.reload();
-		},
-		state() {
-			this.$refs.users.reload();
-		},
-		origin() {
-			this.$refs.users.reload();
-		},
-	},
+async function addUser() {
+	const { canceled: canceled1, result: username } = await os.inputText({
+		title: i18n.ts.username,
+	});
+	if (canceled1) return;
 
-	async mounted() {
-		this.$emit('info', this[symbols.PAGE_INFO]);
-	},
+	const { canceled: canceled2, result: password } = await os.inputText({
+		title: i18n.ts.password,
+		type: 'password'
+	});
+	if (canceled2) return;
 
-	methods: {
-		lookupUser,
+	os.apiWithDialog('admin/accounts/create', {
+		username: username,
+		password: password,
+	}).then(res => {
+		paginationComponent.reload();
+	});
+}
 
-		searchUser() {
-			os.selectUser().then(user => {
-				this.show(user);
-			});
-		},
+function show(user) {
+	os.pageWindow(`/user-info/${user.id}`);
+}
 
-		async addUser() {
-			const { canceled: canceled1, result: username } = await os.dialog({
-				title: this.$ts.username,
-				input: true
-			});
-			if (canceled1) return;
-
-			const { canceled: canceled2, result: password } = await os.dialog({
-				title: this.$ts.password,
-				input: { type: 'password' }
-			});
-			if (canceled2) return;
-
-			os.apiWithDialog('admin/accounts/create', {
-				username: username,
-				password: password,
-			}).then(res => {
-				this.$refs.users.reload();
-			});
-		},
-
-		show(user) {
-			os.pageWindow(`/user-info/${user.id}`);
-		},
-
-		acct
-	}
+defineExpose({
+	[symbols.PAGE_INFO]: computed(() => ({
+		title: i18n.ts.users,
+		icon: 'fas fa-users',
+		bg: 'var(--bg)',
+		actions: [{
+			icon: 'fas fa-search',
+			text: i18n.ts.search,
+			handler: searchUser
+		}, {
+			asFullButton: true,
+			icon: 'fas fa-plus',
+			text: i18n.ts.addUser,
+			handler: addUser
+		}, {
+			asFullButton: true,
+			icon: 'fas fa-search',
+			text: i18n.ts.lookup,
+			handler: lookupUser
+		}],
+	})),
 });
 </script>
 

@@ -34,8 +34,8 @@ app.use(views(_dirname + '/views', {
 	extension: 'pug',
 	options: {
 		version: config.version,
-		config
-	}
+		config,
+	},
 }));
 
 // Serve favicon
@@ -77,7 +77,7 @@ router.get('/assets/(.*)', async ctx => {
 // Apple touch icon
 router.get('/apple-touch-icon.png', async ctx => {
 	await send(ctx as any, '/apple-touch-icon.png', {
-		root: staticAssets
+		root: staticAssets,
 	});
 });
 
@@ -100,7 +100,7 @@ router.get('/twemoji/(.*)', async ctx => {
 // ServiceWorker
 router.get('/sw.js', async ctx => {
 	await send(ctx as any, `/sw.${config.version}.js`, {
-		root: assets
+		root: assets,
 	});
 });
 
@@ -109,7 +109,7 @@ router.get('/manifest.json', require('./manifest'));
 
 router.get('/robots.txt', async ctx => {
 	await send(ctx as any, '/robots.txt', {
-		root: staticAssets
+		root: staticAssets,
 	});
 });
 
@@ -118,7 +118,7 @@ router.get('/robots.txt', async ctx => {
 // Docs
 router.get('/api-doc', async ctx => {
 	await send(ctx as any, '/redoc.html', {
-		root: staticAssets
+		root: staticAssets,
 	});
 });
 
@@ -136,7 +136,7 @@ const getFeed = async (acct: string, withAll = false) => {
 	const user = await Users.findOne({
 		usernameLower: username.toLowerCase(),
 		host,
-		isSuspended: false
+		isSuspended: false,
 	});
 
 	return user && await packFeed(user, withAll);
@@ -197,7 +197,7 @@ router.get(['/@:user', '/@:user/:sub'], async (ctx, next) => {
 	const user = await Users.findOne({
 		usernameLower: username.toLowerCase(),
 		host,
-		isSuspended: false
+		isSuspended: false,
 	});
 
 	if (user != null) {
@@ -213,7 +213,8 @@ router.get(['/@:user', '/@:user/:sub'], async (ctx, next) => {
 			user, profile, me,
 			sub: ctx.params.sub,
 			instanceName: meta.name || 'Misskey',
-			icon: meta.iconUrl
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 		ctx.set('Cache-Control', 'public, max-age=30');
 	} else {
@@ -227,7 +228,7 @@ router.get('/users/:user', async ctx => {
 	const user = await Users.findOne({
 		id: ctx.params.user,
 		host: null,
-		isSuspended: false
+		isSuspended: false,
 	});
 
 	if (user == null) {
@@ -252,7 +253,8 @@ router.get('/notes/:note', async (ctx, next) => {
 			// TODO: Let locale changeable by instance setting
 			summary: getNoteSummary(_note),
 			instanceName: meta.name || 'Misskey',
-			icon: meta.iconUrl
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 
 		if (['public', 'home'].includes(note.visibility)) {
@@ -272,14 +274,14 @@ router.get('/@:user/pages/:page', async (ctx, next) => {
 	const { username, host } = Acct.parse(ctx.params.user);
 	const user = await Users.findOne({
 		usernameLower: username.toLowerCase(),
-		host
+		host,
 	});
 
 	if (user == null) return;
 
 	const page = await Pages.findOne({
 		name: ctx.params.page,
-		userId: user.id
+		userId: user.id,
 	});
 
 	if (page) {
@@ -289,7 +291,9 @@ router.get('/@:user/pages/:page', async (ctx, next) => {
 		await ctx.render('page', {
 			page: _page,
 			profile,
-			instanceName: meta.name || 'Misskey'
+			instanceName: meta.name || 'Misskey',
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 
 		if (['public'].includes(page.visibility)) {
@@ -318,7 +322,9 @@ router.get('/clips/:clip', async (ctx, next) => {
 		await ctx.render('clip', {
 			clip: _clip,
 			profile,
-			instanceName: meta.name || 'Misskey'
+			instanceName: meta.name || 'Misskey',
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 
 		ctx.set('Cache-Control', 'public, max-age=180');
@@ -341,7 +347,8 @@ router.get('/gallery/:post', async (ctx, next) => {
 			post: _post,
 			profile,
 			instanceName: meta.name || 'Misskey',
-			icon: meta.iconUrl
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 
 		ctx.set('Cache-Control', 'public, max-age=180');
@@ -363,7 +370,9 @@ router.get('/channels/:channel', async (ctx, next) => {
 		const meta = await fetchMeta();
 		await ctx.render('channel', {
 			channel: _channel,
-			instanceName: meta.name || 'Misskey'
+			instanceName: meta.name || 'Misskey',
+			icon: meta.iconUrl,
+			themeColor: meta.themeColor,
 		});
 
 		ctx.set('Cache-Control', 'public, max-age=180');
@@ -385,7 +394,7 @@ router.get('/_info_card_', async ctx => {
 		host: config.host,
 		meta: meta,
 		originalUsersCount: await Users.count({ host: null }),
-		originalNotesCount: await Notes.count({ userHost: null })
+		originalNotesCount: await Notes.count({ userHost: null }),
 	});
 });
 
@@ -403,9 +412,6 @@ router.get('/cli', async ctx => {
 
 const override = (source: string, target: string, depth: number = 0) =>
 	[, ...target.split('/').filter(x => x), ...source.split('/').filter(x => x).splice(depth)].join('/');
-
-router.get('/othello', async ctx => ctx.redirect(override(ctx.URL.pathname, 'games/reversi', 1)));
-router.get('/reversi', async ctx => ctx.redirect(override(ctx.URL.pathname, 'games')));
 
 router.get('/flush', async ctx => {
 	await ctx.render('flush');
@@ -425,7 +431,8 @@ router.get('(.*)', async ctx => {
 		title: meta.name || 'Misskey',
 		instanceName: meta.name || 'Misskey',
 		desc: meta.description,
-		icon: meta.iconUrl
+		icon: meta.iconUrl,
+		themeColor: meta.themeColor,
 	});
 	ctx.set('Cache-Control', 'public, max-age=300');
 });

@@ -3,30 +3,34 @@ process.env.NODE_ENV = 'test';
 import * as assert from 'assert';
 import * as lolex from '@sinonjs/fake-timers';
 import { async, initTestDb } from './utils';
-import TestChart from '../src/services/chart/charts/classes/test';
-import TestGroupedChart from '../src/services/chart/charts/classes/test-grouped';
-import TestUniqueChart from '../src/services/chart/charts/classes/test-unique';
-import * as _TestChart from '../src/services/chart/charts/schemas/test';
-import * as _TestGroupedChart from '../src/services/chart/charts/schemas/test-grouped';
-import * as _TestUniqueChart from '../src/services/chart/charts/schemas/test-unique';
-import Chart from '../src/services/chart/core';
+import TestChart from '../src/services/chart/charts/test';
+import TestGroupedChart from '../src/services/chart/charts/test-grouped';
+import TestUniqueChart from '../src/services/chart/charts/test-unique';
+import TestIntersectionChart from '../src/services/chart/charts/test-intersection';
+import * as _TestChart from '../src/services/chart/charts/entities/test';
+import * as _TestGroupedChart from '../src/services/chart/charts/entities/test-grouped';
+import * as _TestUniqueChart from '../src/services/chart/charts/entities/test-unique';
+import * as _TestIntersectionChart from '../src/services/chart/charts/entities/test-intersection';
 
 describe('Chart', () => {
 	let testChart: TestChart;
 	let testGroupedChart: TestGroupedChart;
 	let testUniqueChart: TestUniqueChart;
+	let testIntersectionChart: TestIntersectionChart;
 	let clock: lolex.Clock;
 
 	beforeEach(async(async () => {
 		await initTestDb(false, [
-			Chart.schemaToEntity(_TestChart.name, _TestChart.schema),
-			Chart.schemaToEntity(_TestGroupedChart.name, _TestGroupedChart.schema),
-			Chart.schemaToEntity(_TestUniqueChart.name, _TestUniqueChart.schema)
+			_TestChart.entity.hour, _TestChart.entity.day,
+			_TestGroupedChart.entity.hour, _TestGroupedChart.entity.day,
+			_TestUniqueChart.entity.hour, _TestUniqueChart.entity.day,
+			_TestIntersectionChart.entity.hour, _TestIntersectionChart.entity.day,
 		]);
 
 		testChart = new TestChart();
 		testGroupedChart = new TestGroupedChart();
 		testUniqueChart = new TestUniqueChart();
+		testIntersectionChart = new TestIntersectionChart();
 
 		clock = lolex.install({
 			now: new Date(Date.UTC(2000, 0, 1, 0, 0, 0))
@@ -128,6 +132,32 @@ describe('Chart', () => {
 				dec: [0, 0, 0],
 				inc: [3, 0, 0],
 				total: [3, 0, 0]
+			},
+		});
+	}));
+
+	it('複数回saveされてもデータの更新は一度だけ', async(async () => {
+		await testChart.increment();
+		await testChart.save();
+		await testChart.save();
+		await testChart.save();
+
+		const chartHours = await testChart.getChart('hour', 3, null);
+		const chartDays = await testChart.getChart('day', 3, null);
+
+		assert.deepStrictEqual(chartHours, {
+			foo: {
+				dec: [0, 0, 0],
+				inc: [1, 0, 0],
+				total: [1, 0, 0]
+			},
+		});
+
+		assert.deepStrictEqual(chartDays, {
+			foo: {
+				dec: [0, 0, 0],
+				inc: [1, 0, 0],
+				total: [1, 0, 0]
 			},
 		});
 	}));
@@ -401,6 +431,53 @@ describe('Chart', () => {
 				foo: [2, 0, 0],
 			});
 		}));
+
+		describe('Intersection', () => {
+			it('条件が満たされていない場合はカウントされない', async(async () => {
+				await testIntersectionChart.addA('alice');
+				await testIntersectionChart.addA('bob');
+				await testIntersectionChart.addB('carol');
+				await testIntersectionChart.save();
+	
+				const chartHours = await testIntersectionChart.getChart('hour', 3, null);
+				const chartDays = await testIntersectionChart.getChart('day', 3, null);
+	
+				assert.deepStrictEqual(chartHours, {
+					a: [2, 0, 0],
+					b: [1, 0, 0],
+					aAndB: [0, 0, 0],
+				});
+	
+				assert.deepStrictEqual(chartDays, {
+					a: [2, 0, 0],
+					b: [1, 0, 0],
+					aAndB: [0, 0, 0],
+				});
+			}));
+
+			it('条件が満たされている場合にカウントされる', async(async () => {
+				await testIntersectionChart.addA('alice');
+				await testIntersectionChart.addA('bob');
+				await testIntersectionChart.addB('carol');
+				await testIntersectionChart.addB('alice');
+				await testIntersectionChart.save();
+	
+				const chartHours = await testIntersectionChart.getChart('hour', 3, null);
+				const chartDays = await testIntersectionChart.getChart('day', 3, null);
+	
+				assert.deepStrictEqual(chartHours, {
+					a: [2, 0, 0],
+					b: [2, 0, 0],
+					aAndB: [1, 0, 0],
+				});
+	
+				assert.deepStrictEqual(chartDays, {
+					a: [2, 0, 0],
+					b: [2, 0, 0],
+					aAndB: [1, 0, 0],
+				});
+			}));
+		});
 	});
 
 	describe('Resync', () => {

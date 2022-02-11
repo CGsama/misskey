@@ -1,10 +1,10 @@
 <template>
-<div class="zbcjwnqg" style="margin-top: -8px;">
+<div class="zbcjwnqg">
 	<div class="selects" style="display: flex;">
 		<MkSelect v-model="chartSrc" style="margin: 0; flex: 1;">
 			<optgroup :label="$ts.federation">
-				<option value="federation-instances">{{ $ts._charts.federationInstancesIncDec }}</option>
-				<option value="federation-instances-total">{{ $ts._charts.federationInstancesTotal }}</option>
+				<option value="federation">{{ $ts._charts.federation }}</option>
+				<option value="ap-request">{{ $ts._charts.apRequest }}</option>
 			</optgroup>
 			<optgroup :label="$ts.users">
 				<option value="users">{{ $ts._charts.usersIncDec }}</option>
@@ -19,9 +19,7 @@
 			</optgroup>
 			<optgroup :label="$ts.drive">
 				<option value="drive-files">{{ $ts._charts.filesIncDec }}</option>
-				<option value="drive-files-total">{{ $ts._charts.filesTotal }}</option>
 				<option value="drive">{{ $ts._charts.storageUsageIncDec }}</option>
-				<option value="drive-total">{{ $ts._charts.storageUsageTotal }}</option>
 			</optgroup>
 		</MkSelect>
 		<MkSelect v-model="chartSpan" style="margin: 0 0 0 10px;">
@@ -29,16 +27,16 @@
 			<option value="day">{{ $ts.perDay }}</option>
 		</MkSelect>
 	</div>
-	<MkChart :src="chartSrc" :span="chartSpan" :limit="chartLimit" :detailed="detailed"></MkChart>
+	<div class="chart">
+		<MkChart :src="chartSrc" :span="chartSpan" :limit="chartLimit" :detailed="detailed"></MkChart>
+	</div>
 </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref, watch } from 'vue';
+import { defineComponent, ref } from 'vue';
 import MkSelect from '@/components/form/select.vue';
 import MkChart from '@/components/chart.vue';
-import * as os from '@/os';
-import { defaultStore } from '@/store';
 
 export default defineComponent({
 	components: {
@@ -74,7 +72,10 @@ export default defineComponent({
 <style lang="scss" scoped>
 .zbcjwnqg {
 	> .selects {
-		padding: 8px 16px 0 16px;
+	}
+
+	> .chart {
+		padding: 8px 0 0 0;
 	}
 }
 </style>

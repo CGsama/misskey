@@ -3,10 +3,10 @@
 	<MkContainer :foldable="true" class="lookup">
 		<template #header><i class="fas fa-search"></i> {{ $ts.lookup }}</template>
 		<div class="xrmjdkdw-lookup">
-			<MkInput class="item" v-model="q" type="text" @enter="find()">
+			<MkInput v-model="q" class="item" type="text" @enter="find()">
 				<template #label>{{ $ts.fileIdOrUrl }}</template>
 			</MkInput>
-			<MkButton @click="find()" primary><i class="fas fa-search"></i> {{ $ts.lookup }}</MkButton>
+			<MkButton primary @click="find()"><i class="fas fa-search"></i> {{ $ts.lookup }}</MkButton>
 		</div>
 	</MkContainer>
 
@@ -19,7 +19,7 @@
 					<option value="local">{{ $ts.local }}</option>
 					<option value="remote">{{ $ts.remote }}</option>
 				</MkSelect>
-				<MkInput v-model="searchHost" :debounce="true" type="search" style="margin: 0; flex: 1;" :disabled="pagination.params().origin === 'local'">
+				<MkInput v-model="searchHost" :debounce="true" type="search" style="margin: 0; flex: 1;" :disabled="pagination.params.origin === 'local'">
 					<template #label>{{ $ts.host }}</template>
 				</MkInput>
 			</div>
@@ -28,8 +28,8 @@
 					<template #label>MIME type</template>
 				</MkInput>
 			</div>
-			<MkPagination :pagination="pagination" #default="{items}" class="urempief" ref="files">
-				<button class="file _panel _button _gap" v-for="file in items" :key="file.id" @click="show(file, $event)">
+			<MkPagination v-slot="{items}" :pagination="pagination" class="urempief">
+				<button v-for="file in items" :key="file.id" class="file _panel _button _gap" @click="show(file, $event)">
 					<MkDriveFileThumbnail class="thumbnail" :file="file" fit="contain"/>
 					<div class="body">
 						<div>
@@ -54,8 +54,8 @@
 </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
+import { computed } from 'vue';
 import MkButton from '@/components/ui/button.vue';
 import MkInput from '@/components/form/input.vue';
 import MkSelect from '@/components/form/select.vue';
@@ -65,97 +65,63 @@ import MkDriveFileThumbnail from '@/components/drive-file-thumbnail.vue';
 import bytes from '@/filters/bytes';
 import * as os from '@/os';
 import * as symbols from '@/symbols';
+import { i18n } from '@/i18n';
 
-export default defineComponent({
-	components: {
-		MkButton,
-		MkInput,
-		MkSelect,
-		MkPagination,
-		MkContainer,
-		MkDriveFileThumbnail,
-	},
+let q = $ref(null);
+let origin = $ref('local');
+let type = $ref(null);
+let searchHost = $ref('');
+const pagination = {
+	endpoint: 'admin/drive/files' as const,
+	limit: 10,
+	params: computed(() => ({
+		type: (type && type !== '') ? type : null,
+		origin: origin,
+		hostname: (searchHost && searchHost !== '') ? searchHost : null,
+	})),
+};
 
-	emits: ['info'],
+function clear() {
+	os.confirm({
+		type: 'warning',
+		text: i18n.ts.clearCachedFilesConfirm,
+	}).then(({ canceled }) => {
+		if (canceled) return;
 
-	data() {
-		return {
-			[symbols.PAGE_INFO]: {
-				title: this.$ts.files,
-				icon: 'fas fa-cloud',
-				bg: 'var(--bg)',
-				actions: [{
-					text: this.$ts.clearCachedFiles,
-					icon: 'fas fa-trash-alt',
-					handler: this.clear
-				}]
-			},
-			q: null,
-			origin: 'local',
-			type: null,
-			searchHost: '',
-			pagination: {
-				endpoint: 'admin/drive/files',
-				limit: 10,
-				params: () => ({
-					type: (this.type && this.type !== '') ? this.type : null,
-					origin: this.origin,
-					hostname: (this.hostname && this.hostname !== '') ? this.hostname : null,
-				}),
-			},
+		os.apiWithDialog('admin/drive/clean-remote-files', {});
+	});
+}
+
+function show(file) {
+	os.popup(import('./file-dialog.vue'), {
+		fileId: file.id
+	}, {}, 'closed');
+}
+
+function find() {
+	os.api('admin/drive/show-file', q.startsWith('http://') || q.startsWith('https://') ? { url: q.trim() } : { fileId: q.trim() }).then(file => {
+		show(file);
+	}).catch(err => {
+		if (err.code === 'NO_SUCH_FILE') {
+			os.alert({
+				type: 'error',
+				text: i18n.ts.notFound
+			});
 		}
-	},
+	});
+}
 
-	watch: {
-		type() {
-			this.$refs.files.reload();
-		},
-		origin() {
-			this.$refs.files.reload();
-		},
-		searchHost() {
-			this.$refs.files.reload();
-		},
-	},
-
-	mounted() {
-		this.$emit('info', this[symbols.PAGE_INFO]);
-	},
-
-	methods: {
-		clear() {
-			os.dialog({
-				type: 'warning',
-				text: this.$ts.clearCachedFilesConfirm,
-				showCancelButton: true
-			}).then(({ canceled }) => {
-				if (canceled) return;
-
-				os.apiWithDialog('admin/drive/clean-remote-files', {});
-			});
-		},
-
-		show(file, ev) {
-			os.popup(import('./file-dialog.vue'), {
-				fileId: file.id
-			}, {}, 'closed');
-		},
-
-		find() {
-			os.api('admin/drive/show-file', this.q.startsWith('http://') || this.q.startsWith('https://') ? { url: this.q.trim() } : { fileId: this.q.trim() }).then(file => {
-				this.show(file);
-			}).catch(e => {
-				if (e.code === 'NO_SUCH_FILE') {
-					os.dialog({
-						type: 'error',
-						text: this.$ts.notFound
-					});
-				}
-			});
-		},
-
-		bytes
-	}
+defineExpose({
+	[symbols.PAGE_INFO]: computed(() => ({
+		title: i18n.ts.files,
+		icon: 'fas fa-cloud',
+		bg: 'var(--bg)',
+		actions: [{
+			text: i18n.ts.clearCachedFiles,
+			icon: 'fas fa-trash-alt',
+			handler: clear,
+		}],
+	})),
 });
 </script>
 

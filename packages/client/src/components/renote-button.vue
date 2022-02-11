@@ -1,15 +1,11 @@
 <template>
 <button v-if="canRenote"
+	ref="buttonRef"
 	class="eddddedb _button canRenote"
 	@click="renote()"
-	@touchstart.passive="onMouseover"
-	@mouseover="onMouseover"
-	@mouseleave="onMouseleave"
-	@touchend="onMouseleave"
-	ref="buttonRef"
 >
 	<i class="fas fa-retweet"></i>
-	<p class="count" v-if="count > 0">{{ count }}</p>
+	<p v-if="count > 0" class="count">{{ count }}</p>
 </button>
 <button v-else class="eddddedb _button">
 	<i class="fas fa-ban"></i>
@@ -42,15 +38,13 @@ export default defineComponent({
 
 		const canRenote = computed(() => ['public', 'home'].includes(props.note.visibility) || props.note.userId === $i.id);
 
-		const { onMouseover, onMouseleave } = useTooltip(async (showing) => {
+		useTooltip(buttonRef, async (showing) => {
 			const renotes = await os.api('notes/renotes', {
 				noteId: props.note.id,
 				limit: 11
 			});
 
-			const users = renotes
-				.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-				.map(x => x.user);
+			const users = renotes.map(x => x.user);
 
 			if (users.length < 1) return;
 
@@ -58,14 +52,14 @@ export default defineComponent({
 				showing,
 				users,
 				count: props.count,
-				source: buttonRef.value
+				targetElement: buttonRef.value
 			}, {}, 'closed');
 		});
 
 		const renote = (viaKeyboard = false) => {
 			pleaseLogin();
 			os.popupMenu([{
-				text: i18n.locale.renote,
+				text: i18n.ts.renote,
 				icon: 'fas fa-retweet',
 				action: () => {
 					os.api('notes/create', {
@@ -73,7 +67,7 @@ export default defineComponent({
 					});
 				}
 			}, {
-				text: i18n.locale.quote,
+				text: i18n.ts.quote,
 				icon: 'fas fa-quote-right',
 				action: () => {
 					os.post({
@@ -89,8 +83,6 @@ export default defineComponent({
 			buttonRef,
 			canRenote,
 			renote,
-			onMouseover,
-			onMouseleave,
 		};
 	},
 });

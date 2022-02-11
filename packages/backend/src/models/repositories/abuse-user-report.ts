@@ -12,21 +12,22 @@ export class AbuseUserReportRepository extends Repository<AbuseUserReport> {
 
 		return await awaitAll({
 			id: report.id,
-			createdAt: report.createdAt,
+			createdAt: report.createdAt.toISOString(),
 			comment: report.comment,
 			resolved: report.resolved,
 			reporterId: report.reporterId,
 			targetUserId: report.targetUserId,
 			assigneeId: report.assigneeId,
 			reporter: Users.pack(report.reporter || report.reporterId, null, {
-				detail: true
+				detail: true,
 			}),
 			targetUser: Users.pack(report.targetUser || report.targetUserId, null, {
-				detail: true
+				detail: true,
 			}),
 			assignee: report.assigneeId ? Users.pack(report.assignee || report.assigneeId, null, {
-				detail: true
+				detail: true,
 			}) : null,
+			forwarded: report.forwarded,
 		});
 	}
 

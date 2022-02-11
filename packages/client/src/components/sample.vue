@@ -57,7 +57,7 @@ export default defineComponent({
 
 	methods: {
 		async openDialog() {
-			os.dialog({
+			os.alert({
 				type: 'warning',
 				title: 'Oh my Aichan',
 				text: 'Lorem ipsum dolor sit amet, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
@@ -109,7 +109,7 @@ export default defineComponent({
 				text: 'Delete some bananas',
 				danger: true,
 				action: () => {},
-			}], ev.currentTarget || ev.target);
+			}], ev.currentTarget ?? ev.target);
 		},
 	}
 });

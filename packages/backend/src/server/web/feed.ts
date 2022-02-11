@@ -20,7 +20,7 @@ export default async function(user: User, withAll = false) {
 			visibility: In(['public', 'home'])
 		},
 		order: { createdAt: -1 },
-		take: 20
+		take: 20,
 	});
 
 	const feed = new Feed({
@@ -36,7 +36,7 @@ export default async function(user: User, withAll = false) {
 			atom: `${author.link}.atom`,
 		},
 		author,
-		copyright: user.name || user.username
+		copyright: user.name || user.username,
 	});
 
 	for (const note of notes) {

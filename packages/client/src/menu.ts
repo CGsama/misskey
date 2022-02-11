@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue';
+import { computed, ref, reactive } from 'vue';
 import { search } from '@/scripts/search';
 import * as os from '@/os';
 import { i18n } from '@/i18n';
@@ -7,7 +7,7 @@ import { $i } from './account';
 import { unisonReload } from '@/scripts/unison-reload';
 import { router } from './router';
 
-export const menuDef = {
+export const menuDef = reactive({
 	notifications: {
 		title: 'notifications',
 		icon: 'fas fa-bell',
@@ -73,12 +73,12 @@ export const menuDef = {
 				})), null, {
 					type: 'link',
 					to: '/my/lists',
-					text: i18n.locale.manageLists,
+					text: i18n.ts.manageLists,
 					icon: 'fas fa-cog',
 				}];
 				items.value = _items;
 			});
-			os.popupMenu(items, ev.currentTarget || ev.target);
+			os.popupMenu(items, ev.currentTarget ?? ev.target);
 		},
 	},
 	groups: {
@@ -104,12 +104,12 @@ export const menuDef = {
 				})), null, {
 					type: 'link',
 					to: '/my/antennas',
-					text: i18n.locale.manageAntennas,
+					text: i18n.ts.manageAntennas,
 					icon: 'fas fa-cog',
 				}];
 				items.value = _items;
 			});
-			os.popupMenu(items, ev.currentTarget || ev.target);
+			os.popupMenu(items, ev.currentTarget ?? ev.target);
 		},
 	},
 	mentions: {
@@ -163,62 +163,44 @@ export const menuDef = {
 		icon: 'fas fa-laugh',
 		to: '/emojis',
 	},
-	games: {
-		title: 'games',
-		icon: 'fas fa-gamepad',
-		to: '/games/reversi',
-	},
 	scratchpad: {
 		title: 'scratchpad',
 		icon: 'fas fa-terminal',
 		to: '/scratchpad',
-	},
-	rooms: {
-		title: 'rooms',
-		icon: 'fas fa-door-closed',
-		show: computed(() => $i != null),
-		to: computed(() => `/@${$i.username}/room`),
 	},
 	ui: {
 		title: 'switchUi',
 		icon: 'fas fa-columns',
 		action: (ev) => {
 			os.popupMenu([{
-				text: i18n.locale.default,
+				text: i18n.ts.default,
 				active: ui === 'default' || ui === null,
 				action: () => {
 					localStorage.setItem('ui', 'default');
 					unisonReload();
 				}
 			}, {
-				text: i18n.locale.deck,
+				text: i18n.ts.deck,
 				active: ui === 'deck',
 				action: () => {
 					localStorage.setItem('ui', 'deck');
 					unisonReload();
 				}
 			}, {
-				text: i18n.locale.classic,
+				text: i18n.ts.classic,
 				active: ui === 'classic',
 				action: () => {
 					localStorage.setItem('ui', 'classic');
 					unisonReload();
 				}
-			}, {
-				text: 'Chat (β)',
-				active: ui === 'chat',
-				action: () => {
-					localStorage.setItem('ui', 'chat');
-					unisonReload();
-				}
 			}, /*{
-				text: i18n.locale.desktop + ' (β)',
+				text: i18n.ts.desktop + ' (β)',
 				active: ui === 'desktop',
 				action: () => {
 					localStorage.setItem('ui', 'desktop');
 					unisonReload();
 				}
-			}*/], ev.currentTarget || ev.target);
+			}*/], ev.currentTarget ?? ev.target);
 		},
 	},
-};
+});

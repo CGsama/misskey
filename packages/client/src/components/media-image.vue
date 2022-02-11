@@ -1,5 +1,5 @@
 <template>
-<div class="qjewsnkg" v-if="hide" @click="hide = false">
+<div v-if="hide" class="qjewsnkg" @click="hide = false">
 	<ImgWithBlurhash class="bg" :hash="image.blurhash" :title="image.comment" :alt="image.comment"/>
 	<div class="text">
 		<div>
@@ -8,70 +8,44 @@
 		</div>
 	</div>
 </div>
-<div class="gqnyydlz" :style="{ background: color }" v-else>
+<div v-else class="gqnyydlz">
 	<a
 		:href="image.url"
 		:title="image.name"
 	>
 		<ImgWithBlurhash :hash="image.blurhash" :src="url" :alt="image.comment" :title="image.comment" :cover="false"/>
-		<div class="gif" v-if="image.type === 'image/gif'">GIF</div>
+		<div v-if="image.type === 'image/gif'" class="gif">GIF</div>
 	</a>
-	<i class="fas fa-eye-slash" @click="hide = true"></i>
+	<button v-tooltip="$ts.hide" class="_button hide" @click="hide = true"><i class="fas fa-eye-slash"></i></button>
 </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
+import { watch } from 'vue';
+import * as misskey from 'misskey-js';
 import { getStaticImageUrl } from '@/scripts/get-static-image-url';
-import { extractAvgColorFromBlurhash } from '@/scripts/extract-avg-color-from-blurhash';
-import ImageViewer from './image-viewer.vue';
 import ImgWithBlurhash from '@/components/img-with-blurhash.vue';
-import * as os from '@/os';
+import { defaultStore } from '@/store';
 
-export default defineComponent({
-	components: {
-		ImgWithBlurhash
-	},
-	props: {
-		image: {
-			type: Object,
-			required: true
-		},
-		raw: {
-			default: false
-		}
-	},
-	data() {
-		return {
-			hide: true,
-			color: null,
-		};
-	},
-	computed: {
-		url(): any {
-			let url = this.$store.state.disableShowingAnimatedImages
-				? getStaticImageUrl(this.image.thumbnailUrl)
-				: this.image.thumbnailUrl;
+const props = defineProps<{
+	image: misskey.entities.DriveFile;
+	raw?: boolean;
+}>();
 
-			if (this.raw || this.$store.state.loadRawImages) {
-				url = this.image.url;
-			}
+let hide = $ref(true);
 
-			return url;
-		}
-	},
-	created() {
-		// Plugin:register_note_view_interruptor を使って書き換えられる可能性があるためwatchする
-		this.$watch('image', () => {
-			this.hide = (this.$store.state.nsfw === 'force') ? true : this.image.isSensitive && (this.$store.state.nsfw !== 'ignore');
-			if (this.image.blurhash) {
-				this.color = extractAvgColorFromBlurhash(this.image.blurhash);
-			}
-		}, {
-			deep: true,
-			immediate: true,
-		});
-	},
+const url = (props.raw || defaultStore.state.loadRawImages)
+	? props.image.url
+	: defaultStore.state.disableShowingAnimatedImages
+			? getStaticImageUrl(props.image.thumbnailUrl)
+			: props.image.thumbnailUrl;
+
+// Plugin:register_note_view_interruptor を使って書き換えられる可能性があるためwatchする
+watch(() => props.image, () => {
+	hide = (defaultStore.state.nsfw === 'force') ? true : props.image.isSensitive && (defaultStore.state.nsfw !== 'ignore');
+}, {
+	deep: true,
+	immediate: true,
 });
 </script>
 
@@ -109,21 +83,26 @@ export default defineComponent({
 
 .gqnyydlz {
 	position: relative;
-	border: solid 0.5px var(--divider);
+	//box-shadow: 0 0 0 1px var(--divider) inset;
+	background: var(--bg);
 
-	> i {
+	> .hide {
 		display: block;
 		position: absolute;
 		border-radius: 6px;
-		background-color: var(--fg);
-		color: var(--accentLighten);
-		font-size: 14px;
-		opacity: .5;
-		padding: 3px 6px;
+		background-color: var(--accentedBg);
+		-webkit-backdrop-filter: var(--blur, blur(15px));
+		backdrop-filter: var(--blur, blur(15px));
+		color: var(--accent);
+		font-size: 0.8em;
+		padding: 6px 8px;
 		text-align: center;
-		cursor: pointer;
 		top: 12px;
 		right: 12px;
+
+		> i {
+			display: block;
+		}
 	}
 
 	> a {

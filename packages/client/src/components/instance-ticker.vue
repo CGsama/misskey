@@ -1,41 +1,34 @@
 <template>
 <div class="hpaizdrt" :style="bg">
-	<img v-if="info.faviconUrl" class="icon" :src="info.faviconUrl"/>
-	<span class="name">{{ info.name }}</span>
+	<img v-if="instance.faviconUrl" class="icon" :src="instance.faviconUrl"/>
+	<span class="name">{{ instance.name }}</span>
 </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script lang="ts" setup>
+import { } from 'vue';
 import { instanceName } from '@/config';
 
-export default defineComponent({
-	props: {
-		instance: {
-			type: Object,
-			required: false
-		},
-	},
-
-	data() {
-		return {
-			info: this.instance || {
-				faviconUrl: '/favicon.ico',
-				name: instanceName,
-				themeColor: (document.querySelector('meta[name="theme-color-orig"]') as HTMLMetaElement)?.content
-			}
-		}
-	},
-
-	computed: {
-		bg(): any {
-			const themeColor = this.info.themeColor || '#777777';
-			return {
-				background: `linear-gradient(90deg, ${themeColor}, ${themeColor + '00'})`
-			};
-		}
+const props = defineProps<{
+	instance?: {
+		faviconUrl?: string
+		name: string
+		themeColor?: string
 	}
-});
+}>();
+
+// if no instance data is given, this is for the local instance
+const instance = props.instance ?? {
+	faviconUrl: '/favicon.ico',
+	name: instanceName,
+	themeColor: (document.querySelector('meta[name="theme-color-orig"]') as HTMLMetaElement)?.content
+};
+
+const themeColor = instance.themeColor ?? '#777777';
+
+const bg = {
+	background: `linear-gradient(90deg, ${themeColor}, ${themeColor}00)`
+};
 </script>
 
 <style lang="scss" scoped>

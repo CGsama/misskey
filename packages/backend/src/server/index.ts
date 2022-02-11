@@ -10,7 +10,6 @@ import * as Koa from 'koa';
 import * as Router from '@koa/router';
 import * as mount from 'koa-mount';
 import * as koaLogger from 'koa-logger';
-import * as requestStats from 'request-stats';
 import * as slow from 'koa-slow';
 
 import activityPub from './activitypub';
@@ -18,12 +17,10 @@ import nodeinfo from './nodeinfo';
 import wellKnown from './well-known';
 import config from '@/config/index';
 import apiServer from './api/index';
-import { sum } from '@/prelude/array';
 import Logger from '@/services/logger';
 import { envOption } from '../env';
 import { UserProfiles, Users } from '@/models/index';
-import { networkChart } from '@/services/chart/index';
-import { genAvatar } from '@/misc/gen-avatar';
+import { genIdenticon } from '@/misc/gen-identicon';
 import { createTemp } from '@/misc/create-temp';
 import { publishMainStream } from '@/services/stream';
 import * as Acct from 'misskey-js/built/acct';
@@ -43,7 +40,7 @@ if (!['production', 'test'].includes(process.env.NODE_ENV || '')) {
 	// Delay
 	if (envOption.slow) {
 		app.use(slow({
-			delay: 3000
+			delay: 3000,
 		}));
 	}
 }
@@ -74,7 +71,7 @@ router.get('/avatar/@:acct', async ctx => {
 	const user = await Users.findOne({
 		usernameLower: username.toLowerCase(),
 		host: host === config.host ? null : host,
-		isSuspended: false
+		isSuspended: false,
 	});
 
 	if (user) {
@@ -84,16 +81,16 @@ router.get('/avatar/@:acct', async ctx => {
 	}
 });
 
-router.get('/random-avatar/:x', async ctx => {
+router.get('/identicon/:x', async ctx => {
 	const [temp] = await createTemp();
-	await genAvatar(ctx.params.x, fs.createWriteStream(temp));
+	await genIdenticon(ctx.params.x, fs.createWriteStream(temp));
 	ctx.set('Content-Type', 'image/png');
 	ctx.body = fs.createReadStream(temp);
 });
 
 router.get('/verify-email/:code', async ctx => {
 	const profile = await UserProfiles.findOne({
-		emailVerifyCode: ctx.params.code
+		emailVerifyCode: ctx.params.code,
 	});
 
 	if (profile != null) {
@@ -102,12 +99,12 @@ router.get('/verify-email/:code', async ctx => {
 
 		await UserProfiles.update({ userId: profile.userId }, {
 			emailVerified: true,
-			emailVerifyCode: null
+			emailVerifyCode: null,
 		});
 
 		publishMainStream(profile.userId, 'meUpdated', await Users.pack(profile.userId, { id: profile.userId }, {
 			detail: true,
-			includeSecrets: true
+			includeSecrets: true,
 		}));
 	} else {
 		ctx.status = 404;
@@ -153,27 +150,4 @@ export default () => new Promise(resolve => {
 
 	// Listen
 	server.listen(config.port, resolve);
-
-	//#region Network stats
-	let queue: any[] = [];
-
-	requestStats(server, (stats: any) => {
-		if (stats.ok) {
-			queue.push(stats);
-		}
-	});
-
-	// Bulk write
-	setInterval(() => {
-		if (queue.length === 0) return;
-
-		const requests = queue.length;
-		const time = sum(queue.map(x => x.time));
-		const incomingBytes = sum(queue.map(x => x.req.byets));
-		const outgoingBytes = sum(queue.map(x => x.res.byets));
-		queue = [];
-
-		networkChart.update(requests, time, incomingBytes, outgoingBytes);
-	}, 5000);
-	//#endregion
 });
