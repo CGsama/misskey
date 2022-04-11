@@ -1,16 +1,11 @@
-import { EntityRepository, Repository } from 'typeorm';
-import { MessagingMessage } from '@/models/entities/messaging-message';
-import { Users, DriveFiles, UserGroups } from '../index';
-import { Packed } from '@/misc/schema';
-import { User } from '@/models/entities/user';
+import { db } from '@/db/postgre.js';
+import { MessagingMessage } from '@/models/entities/messaging-message.js';
+import { Users, DriveFiles, UserGroups } from '../index.js';
+import { Packed } from '@/misc/schema.js';
+import { User } from '@/models/entities/user.js';
 
-@EntityRepository(MessagingMessage)
-export class MessagingMessageRepository extends Repository<MessagingMessage> {
-	public validateText(text: string): boolean {
-		return text.trim().length <= 1000 && text.trim() != '';
-	}
-
-	public async pack(
+export const MessagingMessageRepository = db.getRepository(MessagingMessage).extend({
+	async pack(
 		src: MessagingMessage['id'] | MessagingMessage,
 		me?: { id: User['id'] } | null | undefined,
 		options?: {
@@ -23,7 +18,7 @@ export class MessagingMessageRepository extends Repository<MessagingMessage> {
 			populateGroup: true,
 		};
 
-		const message = typeof src === 'object' ? src : await this.findOneOrFail(src);
+		const message = typeof src === 'object' ? src : await this.findOneByOrFail({ id: src });
 
 		return {
 			id: message.id,
@@ -40,5 +35,5 @@ export class MessagingMessageRepository extends Repository<MessagingMessage> {
 			isRead: message.isRead,
 			reads: message.reads,
 		};
-	}
-}
+	},
+});

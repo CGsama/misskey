@@ -1,25 +1,29 @@
-import $ from 'cafy';
-import * as bcrypt from 'bcryptjs';
-import { publishMainStream, publishUserEvent } from '@/services/stream';
-import generateUserToken from '../../common/generate-native-user-token';
-import define from '../../define';
-import { Users, UserProfiles } from '@/models/index';
+import bcrypt from 'bcryptjs';
+import { publishInternalEvent, publishMainStream, publishUserEvent } from '@/services/stream.js';
+import generateUserToken from '../../common/generate-native-user-token.js';
+import define from '../../define.js';
+import { Users, UserProfiles } from '@/models/index.js';
 
 export const meta = {
 	requireCredential: true,
 
 	secure: true,
+} as const;
 
-	params: {
-		password: {
-			validator: $.str,
-		},
+export const paramDef = {
+	type: 'object',
+	properties: {
+		password: { type: 'string' },
 	},
+	required: ['password'],
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
-	const profile = await UserProfiles.findOneOrFail(user.id);
+export default define(meta, paramDef, async (ps, user) => {
+	const freshUser = await Users.findOneByOrFail({ id: user.id });
+	const oldToken = freshUser.token;
+
+	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
 	// Compare password
 	const same = await bcrypt.compare(ps.password, profile.password!);
@@ -28,14 +32,14 @@ export default define(meta, async (ps, user) => {
 		throw new Error('incorrect password');
 	}
 
-	// Generate secret
-	const secret = generateUserToken();
+	const newToken = generateUserToken();
 
 	await Users.update(user.id, {
-		token: secret,
+		token: newToken,
 	});
 
 	// Publish event
+	publishInternalEvent('userTokenRegenerated', { id: user.id, oldToken, newToken });
 	publishMainStream(user.id, 'myTokenRegenerated');
 
 	// Terminate streaming

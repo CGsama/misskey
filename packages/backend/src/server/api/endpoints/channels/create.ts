@@ -1,10 +1,8 @@
-import $ from 'cafy';
-import define from '../../define';
-import { ApiError } from '../../error';
-import { Channels, DriveFiles } from '@/models/index';
-import { Channel } from '@/models/entities/channel';
-import { genId } from '@/misc/gen-id';
-import { ID } from '@/misc/cafy-id';
+import define from '../../define.js';
+import { ApiError } from '../../error.js';
+import { Channels, DriveFiles } from '@/models/index.js';
+import { Channel } from '@/models/entities/channel.js';
+import { genId } from '@/misc/gen-id.js';
 
 export const meta = {
 	tags: ['channels'],
@@ -12,20 +10,6 @@ export const meta = {
 	requireCredential: true,
 
 	kind: 'write:channels',
-
-	params: {
-		name: {
-			validator: $.str.range(1, 128),
-		},
-
-		description: {
-			validator: $.nullable.optional.str.range(1, 2048),
-		},
-
-		bannerId: {
-			validator: $.nullable.optional.type(ID),
-		},
-	},
 
 	res: {
 		type: 'object',
@@ -42,11 +26,21 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {
+		name: { type: 'string', minLength: 1, maxLength: 128 },
+		description: { type: 'string', nullable: true, minLength: 1, maxLength: 2048 },
+		bannerId: { type: 'string', format: 'misskey:id', nullable: true },
+	},
+	required: ['name'],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
+export default define(meta, paramDef, async (ps, user) => {
 	let banner = null;
 	if (ps.bannerId != null) {
-		banner = await DriveFiles.findOne({
+		banner = await DriveFiles.findOneBy({
 			id: ps.bannerId,
 			userId: user.id,
 		});
@@ -63,7 +57,7 @@ export default define(meta, async (ps, user) => {
 		name: ps.name,
 		description: ps.description || null,
 		bannerId: banner ? banner.id : null,
-	} as Channel).then(x => Channels.findOneOrFail(x.identifiers[0]));
+	} as Channel).then(x => Channels.findOneByOrFail(x.identifiers[0]));
 
 	return await Channels.pack(channel, user);
 });

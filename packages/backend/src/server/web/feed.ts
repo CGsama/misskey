@@ -1,8 +1,8 @@
 import { Feed } from 'feed';
-import config from '@/config/index';
-import { User } from '@/models/entities/user';
-import { Users, Notes, DriveFiles, UserProfiles } from '@/models/index';
-import { In } from 'typeorm';
+import config from '@/config/index.js';
+import { User } from '@/models/entities/user.js';
+import { Users, Notes, DriveFiles, UserProfiles } from '@/models/index.js';
+import { In, IsNull } from 'typeorm';
 
 export default async function(user: User, withAll = false) {
 	const author = {
@@ -11,13 +11,13 @@ export default async function(user: User, withAll = false) {
 		name: user.name || user.username
 	};
 
-	const profile = await UserProfiles.findOneOrFail(user.id);
+	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
 	const notes = await Notes.find({
 		where: {
 			userId: user.id,
-			//renoteId: null,
-			visibility: In(['public', 'home'])
+			//renoteId: IsNull(),
+			visibility: In(['public', 'home']),
 		},
 		order: { createdAt: -1 },
 		take: 20,

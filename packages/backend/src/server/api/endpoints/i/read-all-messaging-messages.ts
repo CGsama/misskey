@@ -1,6 +1,6 @@
-import { publishMainStream } from '@/services/stream';
-import define from '../../define';
-import { MessagingMessages, UserGroupJoinings } from '@/models/index';
+import { publishMainStream } from '@/services/stream.js';
+import define from '../../define.js';
+import { MessagingMessages, UserGroupJoinings } from '@/models/index.js';
 
 export const meta = {
 	tags: ['account', 'messaging'],
@@ -8,13 +8,16 @@ export const meta = {
 	requireCredential: true,
 
 	kind: 'write:account',
+} as const;
 
-	params: {
-	},
+export const paramDef = {
+	type: 'object',
+	properties: {},
+	required: [],
 } as const;
 
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
+export default define(meta, paramDef, async (ps, user) => {
 	// Update documents
 	await MessagingMessages.update({
 		recipientId: user.id,
@@ -23,7 +26,7 @@ export default define(meta, async (ps, user) => {
 		isRead: true,
 	});
 
-	const joinings = await UserGroupJoinings.find({ userId: user.id });
+	const joinings = await UserGroupJoinings.findBy({ userId: user.id });
 
 	await Promise.all(joinings.map(j => MessagingMessages.createQueryBuilder().update()
 		.set({

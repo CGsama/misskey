@@ -1,18 +1,10 @@
-import $ from 'cafy';
-import { ID } from '@/misc/cafy-id';
-import define from '../../define';
-import { NoteFavorites, Notes, NoteThreadMutings, NoteWatchings } from '@/models/index';
+import define from '../../define.js';
+import { NoteFavorites, Notes, NoteThreadMutings, NoteWatchings } from '@/models/index.js';
 
 export const meta = {
 	tags: ['notes'],
 
 	requireCredential: true,
-
-	params: {
-		noteId: {
-			validator: $.type(ID),
-		},
-	},
 
 	res: {
 		type: 'object',
@@ -34,9 +26,17 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {
+		noteId: { type: 'string', format: 'misskey:id' },
+	},
+	required: ['noteId'],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
-	const note = await Notes.findOneOrFail(ps.noteId);
+export default define(meta, paramDef, async (ps, user) => {
+	const note = await Notes.findOneByOrFail({ id: ps.noteId });
 
 	const [favorite, watching, threadMuting] = await Promise.all([
 		NoteFavorites.count({

@@ -1,14 +1,12 @@
-import define from '../define';
-import { NoteReactions, Notes, Users } from '@/models/index';
-import { federationChart, driveChart } from '@/services/chart/index';
+import define from '../define.js';
+import { Instances, NoteReactions, Notes, Users } from '@/models/index.js';
+import { } from '@/services/chart/index.js';
+import { IsNull } from 'typeorm';
 
 export const meta = {
 	requireCredential: false,
 
 	tags: ['meta'],
-
-	params: {
-	},
 
 	res: {
 		type: 'object',
@@ -46,8 +44,14 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {},
+	required: [],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async () => {
+export default define(meta, paramDef, async () => {
 	const [
 		notesCount,
 		originalNotesCount,
@@ -58,12 +62,12 @@ export default define(meta, async () => {
 		instances,
 	] = await Promise.all([
 		Notes.count({ cache: 3600000 }), // 1 hour
-		Notes.count({ where: { userHost: null }, cache: 3600000 }),
+		Notes.count({ where: { userHost: IsNull() }, cache: 3600000 }),
 		Users.count({ cache: 3600000 }),
-		Users.count({ where: { host: null }, cache: 3600000 }),
+		Users.count({ where: { host: IsNull() }, cache: 3600000 }),
 		NoteReactions.count({ cache: 3600000 }), // 1 hour
-		//NoteReactions.count({ where: { userHost: null }, cache: 3600000 }),
-		federationChart.getChart('hour', 1, null).then(chart => chart.instance.total[0]),
+		//NoteReactions.count({ where: { userHost: IsNull() }, cache: 3600000 }),
+		Instances.count({ cache: 3600000 }),
 	]);
 
 	return {

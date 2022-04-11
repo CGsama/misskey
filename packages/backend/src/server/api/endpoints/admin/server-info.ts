@@ -1,17 +1,14 @@
-import * as os from 'os';
-import * as si from 'systeminformation';
-import { getConnection } from 'typeorm';
-import define from '../../define';
-import { redisClient } from '../../../../db/redis';
+import * as os from 'node:os';
+import si from 'systeminformation';
+import define from '../../define.js';
+import { redisClient } from '../../../../db/redis.js';
+import { db } from '@/db/postgre.js';
 
 export const meta = {
 	requireCredential: true,
 	requireModerator: true,
 
 	tags: ['admin', 'meta'],
-
-	params: {
-	},
 
 	res: {
 		type: 'object',
@@ -90,8 +87,14 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {},
+	required: [],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async () => {
+export default define(meta, paramDef, async () => {
 	const memStats = await si.mem();
 	const fsStats = await si.fsSize();
 	const netInterface = await si.networkInterfaceDefault();
@@ -100,7 +103,7 @@ export default define(meta, async () => {
 		machine: os.hostname(),
 		os: os.platform(),
 		node: process.version,
-		psql: await getConnection().query('SHOW server_version').then(x => x[0].server_version),
+		psql: await db.query('SHOW server_version').then(x => x[0].server_version),
 		redis: redisClient.server_info.redis_version,
 		cpu: {
 			model: os.cpus()[0].model,

@@ -1,12 +1,10 @@
-import $ from 'cafy';
-import { ID } from '@/misc/cafy-id';
-import define from '../../../define';
-import { ApiError } from '../../../error';
-import { getUser } from '../../../common/getters';
-import { MessagingMessages, DriveFiles, UserGroups, UserGroupJoinings, Blockings } from '@/models/index';
-import { User } from '@/models/entities/user';
-import { UserGroup } from '@/models/entities/user-group';
-import { createMessage } from '@/services/messages/create';
+import define from '../../../define.js';
+import { ApiError } from '../../../error.js';
+import { getUser } from '../../../common/getters.js';
+import { MessagingMessages, DriveFiles, UserGroups, UserGroupJoinings, Blockings } from '@/models/index.js';
+import { User } from '@/models/entities/user.js';
+import { UserGroup } from '@/models/entities/user-group.js';
+import { createMessage } from '@/services/messages/create.js';
 
 export const meta = {
 	tags: ['messaging'],
@@ -14,24 +12,6 @@ export const meta = {
 	requireCredential: true,
 
 	kind: 'write:messaging',
-
-	params: {
-		userId: {
-			validator: $.optional.type(ID),
-		},
-
-		groupId: {
-			validator: $.optional.type(ID),
-		},
-
-		text: {
-			validator: $.optional.str.pipe(MessagingMessages.validateText),
-		},
-
-		fileId: {
-			validator: $.optional.type(ID),
-		},
-	},
 
 	res: {
 		type: 'object',
@@ -84,10 +64,32 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {
+		text: { type: 'string', nullable: true, maxLength: 3000 },
+		fileId: { type: 'string', format: 'misskey:id' },
+	},
+	anyOf: [
+		{
+			properties: {
+				userId: { type: 'string', format: 'misskey:id' },
+			},
+			required: ['userId'],
+		},
+		{
+			properties: {
+				groupId: { type: 'string', format: 'misskey:id' },
+			},
+			required: ['groupId'],
+		},
+	],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
-	let recipientUser: User | undefined;
-	let recipientGroup: UserGroup | undefined;
+export default define(meta, paramDef, async (ps, user) => {
+	let recipientUser: User | null;
+	let recipientGroup: UserGroup | null;
 
 	if (ps.userId != null) {
 		// Myself
@@ -102,7 +104,7 @@ export default define(meta, async (ps, user) => {
 		});
 
 		// Check blocking
-		const block = await Blockings.findOne({
+		const block = await Blockings.findOneBy({
 			blockerId: recipientUser.id,
 			blockeeId: user.id,
 		});
@@ -111,14 +113,14 @@ export default define(meta, async (ps, user) => {
 		}
 	} else if (ps.groupId != null) {
 		// Fetch recipient (group)
-		recipientGroup = await UserGroups.findOne(ps.groupId);
+		recipientGroup = await UserGroups.findOneBy({ id: ps.groupId! });
 
 		if (recipientGroup == null) {
 			throw new ApiError(meta.errors.noSuchGroup);
 		}
 
 		// check joined
-		const joining = await UserGroupJoinings.findOne({
+		const joining = await UserGroupJoinings.findOneBy({
 			userId: user.id,
 			userGroupId: recipientGroup.id,
 		});
@@ -130,7 +132,7 @@ export default define(meta, async (ps, user) => {
 
 	let file = null;
 	if (ps.fileId != null) {
-		file = await DriveFiles.findOne({
+		file = await DriveFiles.findOneBy({
 			id: ps.fileId,
 			userId: user.id,
 		});

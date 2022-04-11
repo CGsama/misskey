@@ -1,13 +1,18 @@
-import $ from 'cafy';
 import { EntityRepository, Repository, In, Not } from 'typeorm';
-import { User, ILocalUser, IRemoteUser } from '@/models/entities/user';
-import { Notes, NoteUnreads, FollowRequests, Notifications, MessagingMessages, UserNotePinings, Followings, Blockings, Mutings, UserProfiles, UserSecurityKeys, UserGroupJoinings, Pages, Announcements, AnnouncementReads, Antennas, AntennaNotes, ChannelFollowings, Instances } from '../index';
-import config from '@/config/index';
-import { Packed } from '@/misc/schema';
-import { awaitAll, Promiseable } from '@/prelude/await-all';
-import { populateEmojis } from '@/misc/populate-emojis';
-import { getAntennas } from '@/misc/antenna-cache';
-import { USER_ACTIVE_THRESHOLD, USER_ONLINE_THRESHOLD } from '@/const';
+import Ajv from 'ajv';
+import { User, ILocalUser, IRemoteUser } from '@/models/entities/user.js';
+import { Notes, NoteUnreads, FollowRequests, Notifications, MessagingMessages, UserNotePinings, Followings, Blockings, Mutings, UserProfiles, UserSecurityKeys, UserGroupJoinings, Pages, Announcements, AnnouncementReads, Antennas, AntennaNotes, ChannelFollowings, Instances, DriveFiles } from '../index.js';
+import config from '@/config/index.js';
+import { Packed } from '@/misc/schema.js';
+import { awaitAll, Promiseable } from '@/prelude/await-all.js';
+import { populateEmojis } from '@/misc/populate-emojis.js';
+import { getAntennas } from '@/misc/antenna-cache.js';
+import { USER_ACTIVE_THRESHOLD, USER_ONLINE_THRESHOLD } from '@/const.js';
+import { Cache } from '@/misc/cache.js';
+import { Instance } from '../entities/instance.js';
+import { db } from '@/db/postgre.js';
+
+const userInstanceCache = new Cache<Instance | null>(1000 * 60 * 60 * 3);
 
 type IsUserDetailed<Detailed extends boolean> = Detailed extends true ? Packed<'UserDetailed'> : Packed<'UserLite'>;
 type IsMeAndIsUserDetailed<ExpectsMe extends boolean | null, Detailed extends boolean> =
@@ -17,35 +22,71 @@ type IsMeAndIsUserDetailed<ExpectsMe extends boolean | null, Detailed extends bo
 		Packed<'UserDetailed'> :
 	Packed<'UserLite'>;
 
-@EntityRepository(User)
-export class UserRepository extends Repository<User> {
-	public async getRelation(me: User['id'], target: User['id']) {
+const ajv = new Ajv();
+
+const localUsernameSchema = { type: 'string', pattern: /^\w{1,20}$/.toString().slice(1, -1) } as const;
+const passwordSchema = { type: 'string', minLength: 1 } as const;
+const nameSchema = { type: 'string', minLength: 1, maxLength: 50 } as const;
+const descriptionSchema = { type: 'string', minLength: 1, maxLength: 500 } as const;
+const locationSchema = { type: 'string', minLength: 1, maxLength: 50 } as const;
+const birthdaySchema = { type: 'string', pattern: /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.toString().slice(1, -1) } as const;
+
+function isLocalUser(user: User): user is ILocalUser;
+function isLocalUser<T extends { host: User['host'] }>(user: T): user is T & { host: null; };
+function isLocalUser(user: User | { host: User['host'] }): boolean {
+	return user.host == null;
+}
+
+function isRemoteUser(user: User): user is IRemoteUser;
+function isRemoteUser<T extends { host: User['host'] }>(user: T): user is T & { host: string; };
+function isRemoteUser(user: User | { host: User['host'] }): boolean {
+	return !isLocalUser(user);
+}
+
+export const UserRepository = db.getRepository(User).extend({
+	localUsernameSchema,
+	passwordSchema,
+	nameSchema,
+	descriptionSchema,
+	locationSchema,
+	birthdaySchema,
+
+	//#region Validators
+	validateLocalUsername: ajv.compile(localUsernameSchema),
+	validatePassword: ajv.compile(passwordSchema),
+	validateName: ajv.compile(nameSchema),
+	validateDescription: ajv.compile(descriptionSchema),
+	validateLocation: ajv.compile(locationSchema),
+	validateBirthday: ajv.compile(birthdaySchema),
+	//#endregion
+
+	async getRelation(me: User['id'], target: User['id']) {
 		const [following1, following2, followReq1, followReq2, toBlocking, fromBlocked, mute] = await Promise.all([
-			Followings.findOne({
+			Followings.findOneBy({
 				followerId: me,
 				followeeId: target,
 			}),
-			Followings.findOne({
+			Followings.findOneBy({
 				followerId: target,
 				followeeId: me,
 			}),
-			FollowRequests.findOne({
+			FollowRequests.findOneBy({
 				followerId: me,
 				followeeId: target,
 			}),
-			FollowRequests.findOne({
+			FollowRequests.findOneBy({
 				followerId: target,
 				followeeId: me,
 			}),
-			Blockings.findOne({
+			Blockings.findOneBy({
 				blockerId: me,
 				blockeeId: target,
 			}),
-			Blockings.findOne({
+			Blockings.findOneBy({
 				blockerId: target,
 				blockeeId: me,
 			}),
-			Mutings.findOne({
+			Mutings.findOneBy({
 				muterId: me,
 				muteeId: target,
 			}),
@@ -61,14 +102,14 @@ export class UserRepository extends Repository<User> {
 			isBlocked: fromBlocked != null,
 			isMuted: mute != null,
 		};
-	}
+	},
 
-	public async getHasUnreadMessagingMessage(userId: User['id']): Promise<boolean> {
-		const mute = await Mutings.find({
+	async getHasUnreadMessagingMessage(userId: User['id']): Promise<boolean> {
+		const mute = await Mutings.findBy({
 			muterId: userId,
 		});
 
-		const joinings = await UserGroupJoinings.find({ userId: userId });
+		const joinings = await UserGroupJoinings.findBy({ userId: userId });
 
 		const groupQs = Promise.all(joinings.map(j => MessagingMessages.createQueryBuilder('message')
 			.where(`message.groupId = :groupId`, { groupId: j.userGroupId })
@@ -90,44 +131,44 @@ export class UserRepository extends Repository<User> {
 		]);
 
 		return withUser || withGroups.some(x => x);
-	}
+	},
 
-	public async getHasUnreadAnnouncement(userId: User['id']): Promise<boolean> {
-		const reads = await AnnouncementReads.find({
+	async getHasUnreadAnnouncement(userId: User['id']): Promise<boolean> {
+		const reads = await AnnouncementReads.findBy({
 			userId: userId,
 		});
 
-		const count = await Announcements.count(reads.length > 0 ? {
+		const count = await Announcements.countBy(reads.length > 0 ? {
 			id: Not(In(reads.map(read => read.announcementId))),
 		} : {});
 
 		return count > 0;
-	}
+	},
 
-	public async getHasUnreadAntenna(userId: User['id']): Promise<boolean> {
+	async getHasUnreadAntenna(userId: User['id']): Promise<boolean> {
 		const myAntennas = (await getAntennas()).filter(a => a.userId === userId);
 
-		const unread = myAntennas.length > 0 ? await AntennaNotes.findOne({
+		const unread = myAntennas.length > 0 ? await AntennaNotes.findOneBy({
 			antennaId: In(myAntennas.map(x => x.id)),
 			read: false,
 		}) : null;
 
 		return unread != null;
-	}
+	},
 
-	public async getHasUnreadChannel(userId: User['id']): Promise<boolean> {
-		const channels = await ChannelFollowings.find({ followerId: userId });
+	async getHasUnreadChannel(userId: User['id']): Promise<boolean> {
+		const channels = await ChannelFollowings.findBy({ followerId: userId });
 
-		const unread = channels.length > 0 ? await NoteUnreads.findOne({
+		const unread = channels.length > 0 ? await NoteUnreads.findOneBy({
 			userId: userId,
 			noteChannelId: In(channels.map(x => x.followeeId)),
 		}) : null;
 
 		return unread != null;
-	}
+	},
 
-	public async getHasUnreadNotification(userId: User['id']): Promise<boolean> {
-		const mute = await Mutings.find({
+	async getHasUnreadNotification(userId: User['id']): Promise<boolean> {
+		const mute = await Mutings.findBy({
 			muterId: userId,
 		});
 		const mutedUserIds = mute.map(m => m.muteeId);
@@ -142,17 +183,17 @@ export class UserRepository extends Repository<User> {
 		});
 
 		return count > 0;
-	}
+	},
 
-	public async getHasPendingReceivedFollowRequest(userId: User['id']): Promise<boolean> {
-		const count = await FollowRequests.count({
+	async getHasPendingReceivedFollowRequest(userId: User['id']): Promise<boolean> {
+		const count = await FollowRequests.countBy({
 			followeeId: userId,
 		});
 
 		return count > 0;
-	}
+	},
 
-	public getOnlineStatus(user: User): 'unknown' | 'online' | 'active' | 'offline' {
+	getOnlineStatus(user: User): 'unknown' | 'online' | 'active' | 'offline' {
 		if (user.hideOnlineStatus) return 'unknown';
 		if (user.lastActiveDate == null) return 'unknown';
 		const elapsed = Date.now() - user.lastActiveDate.getTime();
@@ -161,17 +202,22 @@ export class UserRepository extends Repository<User> {
 			elapsed < USER_ACTIVE_THRESHOLD ? 'active' :
 			'offline'
 		);
-	}
+	},
 
-	public getAvatarUrl(user: User): string {
-		if (user.avatarUrl) {
-			return user.avatarUrl;
+	getAvatarUrl(user: User): string {
+		// TODO: avatarIdがあるがavatarがない(JOINされてない)場合のハンドリング
+		if (user.avatar) {
+			return DriveFiles.getPublicUrl(user.avatar, true) || this.getIdenticonUrl(user.id);
 		} else {
-			return `${config.url}/identicon/${user.id}`;
+			return this.getIdenticonUrl(user.id);
 		}
-	}
+	},
 
-	public async pack<ExpectsMe extends boolean | null = null, D extends boolean = false>(
+	getIdenticonUrl(userId: User['id']): string {
+		return `${config.url}/identicon/${userId}`;
+	},
+
+	async pack<ExpectsMe extends boolean | null = null, D extends boolean = false>(
 		src: User['id'] | User,
 		me?: { id: User['id'] } | null | undefined,
 		options?: {
@@ -184,7 +230,22 @@ export class UserRepository extends Repository<User> {
 			includeSecrets: false,
 		}, options);
 
-		const user = typeof src === 'object' ? src : await this.findOneOrFail(src);
+		let user: User;
+
+		if (typeof src === 'object') {
+			user = src;
+			if (src.avatar === undefined && src.avatarId) src.avatar = await DriveFiles.findOneBy({ id: src.avatarId }) ?? null;
+			if (src.banner === undefined && src.bannerId) src.banner = await DriveFiles.findOneBy({ id: src.bannerId }) ?? null;
+		} else {
+			user = await this.findOneOrFail({
+				where: { id: src },
+				relations: {
+					avatar: true,
+					banner: true,
+				},
+			});
+		}
+
 		const meId = me ? me.id : null;
 		const isMe = meId === user.id;
 
@@ -194,7 +255,7 @@ export class UserRepository extends Repository<User> {
 			.innerJoinAndSelect('pin.note', 'note')
 			.orderBy('pin.id', 'DESC')
 			.getMany() : [];
-		const profile = opts.detail ? await UserProfiles.findOneOrFail(user.id) : null;
+		const profile = opts.detail ? await UserProfiles.findOneByOrFail({ userId: user.id }) : null;
 
 		const followingCount = profile == null ? null :
 			(profile.ffVisibility === 'public') || isMe ? user.followingCount :
@@ -214,14 +275,16 @@ export class UserRepository extends Repository<User> {
 			username: user.username,
 			host: user.host,
 			avatarUrl: this.getAvatarUrl(user),
-			avatarBlurhash: user.avatarBlurhash,
+			avatarBlurhash: user.avatar?.blurhash || null,
 			avatarColor: null, // 後方互換性のため
 			isAdmin: user.isAdmin || falsy,
 			isModerator: user.isModerator || falsy,
 			isBot: user.isBot || falsy,
 			isCat: user.isCat || falsy,
-			showTimelineReplies: user.showTimelineReplies || falsy,
-			instance: user.host ? Instances.findOne({ host: user.host }).then(instance => instance ? {
+			instance: user.host ? userInstanceCache.fetch(user.host,
+				() => Instances.findOneBy({ host: user.host! }),
+				v => v != null
+			).then(instance => instance ? {
 				name: instance.name,
 				softwareName: instance.softwareName,
 				softwareVersion: instance.softwareVersion,
@@ -238,8 +301,8 @@ export class UserRepository extends Repository<User> {
 				createdAt: user.createdAt.toISOString(),
 				updatedAt: user.updatedAt ? user.updatedAt.toISOString() : null,
 				lastFetchedAt: user.lastFetchedAt ? user.lastFetchedAt.toISOString() : null,
-				bannerUrl: user.bannerUrl,
-				bannerBlurhash: user.bannerBlurhash,
+				bannerUrl: user.banner ? DriveFiles.getPublicUrl(user.banner, false) : null,
+				bannerBlurhash: user.banner?.blurhash || null,
 				bannerColor: null, // 後方互換性のため
 				isLocked: user.isLocked,
 				isSilenced: user.isSilenced || falsy,
@@ -263,7 +326,7 @@ export class UserRepository extends Repository<User> {
 				twoFactorEnabled: profile!.twoFactorEnabled,
 				usePasswordLessLogin: profile!.usePasswordLessLogin,
 				securityKeys: profile!.twoFactorEnabled
-					? UserSecurityKeys.count({
+					? UserSecurityKeys.countBy({
 						userId: user.id,
 					}).then(result => result >= 1)
 					: false,
@@ -300,6 +363,7 @@ export class UserRepository extends Repository<User> {
 				mutedInstances: profile!.mutedInstances,
 				mutingNotificationTypes: profile!.mutingNotificationTypes,
 				emailNotificationTypes: profile!.emailNotificationTypes,
+				showTimelineReplies: user.showTimelineReplies || falsy,
 			} : {}),
 
 			...(opts.includeSecrets ? {
@@ -310,7 +374,11 @@ export class UserRepository extends Repository<User> {
 						where: {
 							userId: user.id,
 						},
-						select: ['id', 'name', 'lastUsed'],
+						select: {
+							id: true,
+							name: true,
+							lastUsed: true,
+						},
 					})
 					: [],
 			} : {}),
@@ -327,9 +395,9 @@ export class UserRepository extends Repository<User> {
 		} as Promiseable<Packed<'User'>> as Promiseable<IsMeAndIsUserDetailed<ExpectsMe, D>>;
 
 		return await awaitAll(packed);
-	}
+	},
 
-	public packMany<D extends boolean = false>(
+	packMany<D extends boolean = false>(
 		users: (User['id'] | User)[],
 		me?: { id: User['id'] } | null | undefined,
 		options?: {
@@ -338,26 +406,8 @@ export class UserRepository extends Repository<User> {
 		}
 	): Promise<IsUserDetailed<D>[]> {
 		return Promise.all(users.map(u => this.pack(u, me, options)));
-	}
+	},
 
-	public isLocalUser(user: User): user is ILocalUser;
-	public isLocalUser<T extends { host: User['host'] }>(user: T): user is T & { host: null; };
-	public isLocalUser(user: User | { host: User['host'] }): boolean {
-		return user.host == null;
-	}
-
-	public isRemoteUser(user: User): user is IRemoteUser;
-	public isRemoteUser<T extends { host: User['host'] }>(user: T): user is T & { host: string; };
-	public isRemoteUser(user: User | { host: User['host'] }): boolean {
-		return !this.isLocalUser(user);
-	}
-
-	//#region Validators
-	public validateLocalUsername = $.str.match(/^\w{1,20}$/);
-	public validatePassword = $.str.min(1);
-	public validateName = $.str.min(1).max(50);
-	public validateDescription = $.str.min(1).max(500);
-	public validateLocation = $.str.min(1).max(50);
-	public validateBirthday = $.str.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
-	//#endregion
-}
+	isLocalUser,
+	isRemoteUser,
+});

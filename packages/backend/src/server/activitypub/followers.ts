@@ -1,24 +1,24 @@
-import * as Router from '@koa/router';
-import config from '@/config/index';
+import Router from '@koa/router';
+import config from '@/config/index.js';
 import $ from 'cafy';
-import { ID } from '@/misc/cafy-id';
-import * as url from '@/prelude/url';
-import { renderActivity } from '@/remote/activitypub/renderer/index';
-import renderOrderedCollection from '@/remote/activitypub/renderer/ordered-collection';
-import renderOrderedCollectionPage from '@/remote/activitypub/renderer/ordered-collection-page';
-import renderFollowUser from '@/remote/activitypub/renderer/follow-user';
-import { setResponseType } from '../activitypub';
-import { Users, Followings, UserProfiles } from '@/models/index';
-import { LessThan } from 'typeorm';
+import { ID } from '@/misc/cafy-id.js';
+import * as url from '@/prelude/url.js';
+import { renderActivity } from '@/remote/activitypub/renderer/index.js';
+import renderOrderedCollection from '@/remote/activitypub/renderer/ordered-collection.js';
+import renderOrderedCollectionPage from '@/remote/activitypub/renderer/ordered-collection-page.js';
+import renderFollowUser from '@/remote/activitypub/renderer/follow-user.js';
+import { setResponseType } from '../activitypub.js';
+import { Users, Followings, UserProfiles } from '@/models/index.js';
+import { IsNull, LessThan } from 'typeorm';
 
 export default async (ctx: Router.RouterContext) => {
 	const userId = ctx.params.user;
 
 	// Get 'cursor' parameter
-	const [cursor, cursorErr] = $.optional.type(ID).get(ctx.request.query.cursor);
+	const [cursor, cursorErr] = $.default.optional.type(ID).get(ctx.request.query.cursor);
 
 	// Get 'page' parameter
-	const pageErr = !$.optional.str.or(['true', 'false']).ok(ctx.request.query.page);
+	const pageErr = !$.default.optional.str.or(['true', 'false']).ok(ctx.request.query.page);
 	const page: boolean = ctx.request.query.page === 'true';
 
 	// Validate parameters
@@ -27,10 +27,9 @@ export default async (ctx: Router.RouterContext) => {
 		return;
 	}
 
-	// Verify user
-	const user = await Users.findOne({
+	const user = await Users.findOneBy({
 		id: userId,
-		host: null,
+		host: IsNull(),
 	});
 
 	if (user == null) {
@@ -39,7 +38,7 @@ export default async (ctx: Router.RouterContext) => {
 	}
 
 	//#region Check ff visibility
-	const profile = await UserProfiles.findOneOrFail(user.id);
+	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
 	if (profile.ffVisibility === 'private') {
 		ctx.status = 403;

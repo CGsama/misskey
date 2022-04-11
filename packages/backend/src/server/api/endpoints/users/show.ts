@@ -1,35 +1,15 @@
-import $ from 'cafy';
-import { resolveUser } from '@/remote/resolve-user';
-import define from '../../define';
-import { apiLogger } from '../../logger';
-import { ApiError } from '../../error';
-import { ID } from '@/misc/cafy-id';
-import { Users } from '@/models/index';
-import { In } from 'typeorm';
-import { User } from '@/models/entities/user';
+import { resolveUser } from '@/remote/resolve-user.js';
+import define from '../../define.js';
+import { apiLogger } from '../../logger.js';
+import { ApiError } from '../../error.js';
+import { Users } from '@/models/index.js';
+import { FindOptionsWhere, In, IsNull } from 'typeorm';
+import { User } from '@/models/entities/user.js';
 
 export const meta = {
 	tags: ['users'],
 
 	requireCredential: false,
-
-	params: {
-		userId: {
-			validator: $.optional.type(ID),
-		},
-
-		userIds: {
-			validator: $.optional.arr($.type(ID)).unique(),
-		},
-
-		username: {
-			validator: $.optional.str,
-		},
-
-		host: {
-			validator: $.optional.nullable.str,
-		},
-	},
 
 	res: {
 		optional: false, nullable: false,
@@ -43,9 +23,9 @@ export const meta = {
 				items: {
 					type: 'object',
 					ref: 'UserDetailed',
-				}
+				},
 			},
-		]
+		],
 	},
 
 	errors: {
@@ -64,8 +44,39 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	anyOf: [
+		{
+			properties: {
+				userId: { type: 'string', format: 'misskey:id' },
+			},
+			required: ['userId'],
+		},
+		{
+			properties: {
+				userIds: { type: 'array', uniqueItems: true, items: {
+					type: 'string', format: 'misskey:id',
+				} },
+			},
+			required: ['userIds'],
+		},
+		{
+			properties: {
+				username: { type: 'string' },
+				host: {
+					type: 'string',
+					nullable: true,
+					description: 'The local host is represented with `null`.',
+				},
+			},
+			required: ['username'],
+		},
+	],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, me) => {
+export default define(meta, paramDef, async (ps, me) => {
 	let user;
 
 	const isAdminOrModerator = me && (me.isAdmin || me.isModerator);
@@ -75,7 +86,7 @@ export default define(meta, async (ps, me) => {
 			return [];
 		}
 
-		const users = await Users.find(isAdminOrModerator ? {
+		const users = await Users.findBy(isAdminOrModerator ? {
 			id: In(ps.userIds),
 		} : {
 			id: In(ps.userIds),
@@ -99,11 +110,11 @@ export default define(meta, async (ps, me) => {
 				throw new ApiError(meta.errors.failedToResolveRemoteUser);
 			});
 		} else {
-			const q: any = ps.userId != null
+			const q: FindOptionsWhere<User> = ps.userId != null
 				? { id: ps.userId }
-				: { usernameLower: ps.username!.toLowerCase(), host: null };
+				: { usernameLower: ps.username!.toLowerCase(), host: IsNull() };
 
-			user = await Users.findOne(q);
+			user = await Users.findOneBy(q);
 		}
 
 		if (user == null || (!isAdminOrModerator && user.isSuspended)) {

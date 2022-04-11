@@ -1,9 +1,7 @@
-import $ from 'cafy';
 import ms from 'ms';
-import define from '../../define';
-import { ApiError } from '../../error';
-import { Pages, DriveFiles } from '@/models/index';
-import { ID } from '@/misc/cafy-id';
+import define from '../../define.js';
+import { ApiError } from '../../error.js';
+import { Pages, DriveFiles } from '@/models/index.js';
 import { Not } from 'typeorm';
 
 export const meta = {
@@ -16,52 +14,6 @@ export const meta = {
 	limit: {
 		duration: ms('1hour'),
 		max: 300,
-	},
-
-	params: {
-		pageId: {
-			validator: $.type(ID),
-		},
-
-		title: {
-			validator: $.str,
-		},
-
-		name: {
-			validator: $.str.min(1),
-		},
-
-		summary: {
-			validator: $.optional.nullable.str,
-		},
-
-		content: {
-			validator: $.arr($.obj()),
-		},
-
-		variables: {
-			validator: $.arr($.obj()),
-		},
-
-		script: {
-			validator: $.str,
-		},
-
-		eyeCatchingImageId: {
-			validator: $.optional.nullable.type(ID),
-		},
-
-		font: {
-			validator: $.optional.str.or(['serif', 'sans-serif']),
-		},
-
-		alignCenter: {
-			validator: $.optional.bool,
-		},
-
-		hideTitleWhenPinned: {
-			validator: $.optional.bool,
-		},
 	},
 
 	errors: {
@@ -90,9 +42,31 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {
+		pageId: { type: 'string', format: 'misskey:id' },
+		title: { type: 'string' },
+		name: { type: 'string', minLength: 1 },
+		summary: { type: 'string', nullable: true },
+		content: { type: 'array', items: {
+			type: 'object', additionalProperties: true,
+		} },
+		variables: { type: 'array', items: {
+			type: 'object', additionalProperties: true,
+		} },
+		script: { type: 'string' },
+		eyeCatchingImageId: { type: 'string', format: 'misskey:id', nullable: true },
+		font: { type: 'string', enum: ['serif', 'sans-serif'] },
+		alignCenter: { type: 'boolean' },
+		hideTitleWhenPinned: { type: 'boolean' },
+	},
+	required: ['pageId', 'title', 'name', 'content', 'variables', 'script'],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
-	const page = await Pages.findOne(ps.pageId);
+export default define(meta, paramDef, async (ps, user) => {
+	const page = await Pages.findOneBy({ id: ps.pageId });
 	if (page == null) {
 		throw new ApiError(meta.errors.noSuchPage);
 	}
@@ -102,7 +76,7 @@ export default define(meta, async (ps, user) => {
 
 	let eyeCatchingImage = null;
 	if (ps.eyeCatchingImageId != null) {
-		eyeCatchingImage = await DriveFiles.findOne({
+		eyeCatchingImage = await DriveFiles.findOneBy({
 			id: ps.eyeCatchingImageId,
 			userId: user.id,
 		});
@@ -112,7 +86,7 @@ export default define(meta, async (ps, user) => {
 		}
 	}
 
-	await Pages.find({
+	await Pages.findBy({
 		id: Not(ps.pageId),
 		userId: user.id,
 		name: ps.name,

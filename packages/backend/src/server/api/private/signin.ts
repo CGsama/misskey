@@ -1,13 +1,14 @@
-import * as Koa from 'koa';
-import * as bcrypt from 'bcryptjs';
+import Koa from 'koa';
+import bcrypt from 'bcryptjs';
 import * as speakeasy from 'speakeasy';
-import signin from '../common/signin';
-import config from '@/config/index';
-import { Users, Signins, UserProfiles, UserSecurityKeys, AttestationChallenges } from '@/models/index';
-import { ILocalUser } from '@/models/entities/user';
-import { genId } from '@/misc/gen-id';
-import { verifyLogin, hash } from '../2fa';
-import { randomBytes } from 'crypto';
+import signin from '../common/signin.js';
+import config from '@/config/index.js';
+import { Users, Signins, UserProfiles, UserSecurityKeys, AttestationChallenges } from '@/models/index.js';
+import { ILocalUser } from '@/models/entities/user.js';
+import { genId } from '@/misc/gen-id.js';
+import { verifyLogin, hash } from '../2fa.js';
+import { randomBytes } from 'node:crypto';
+import { IsNull } from 'typeorm';
 
 export default async (ctx: Koa.Context) => {
 	ctx.set('Access-Control-Allow-Origin', config.url);
@@ -23,25 +24,25 @@ export default async (ctx: Koa.Context) => {
 		ctx.body = { error };
 	}
 
-	if (typeof username != 'string') {
+	if (typeof username !== 'string') {
 		ctx.status = 400;
 		return;
 	}
 
-	if (typeof password != 'string') {
+	if (typeof password !== 'string') {
 		ctx.status = 400;
 		return;
 	}
 
-	if (token != null && typeof token != 'string') {
+	if (token != null && typeof token !== 'string') {
 		ctx.status = 400;
 		return;
 	}
 
 	// Fetch user
-	const user = await Users.findOne({
+	const user = await Users.findOneBy({
 		usernameLower: username.toLowerCase(),
-		host: null,
+		host: IsNull(),
 	}) as ILocalUser;
 
 	if (user == null) {
@@ -58,7 +59,7 @@ export default async (ctx: Koa.Context) => {
 		return;
 	}
 
-	const profile = await UserProfiles.findOneOrFail(user.id);
+	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
 	// Compare password
 	const same = await bcrypt.compare(password, profile.password!);
@@ -123,7 +124,7 @@ export default async (ctx: Koa.Context) => {
 
 		const clientDataJSON = Buffer.from(body.clientDataJSON, 'hex');
 		const clientData = JSON.parse(clientDataJSON.toString('utf-8'));
-		const challenge = await AttestationChallenges.findOne({
+		const challenge = await AttestationChallenges.findOneBy({
 			userId: user.id,
 			id: body.challengeId,
 			registrationChallenge: false,
@@ -149,7 +150,7 @@ export default async (ctx: Koa.Context) => {
 			return;
 		}
 
-		const securityKey = await UserSecurityKeys.findOne({
+		const securityKey = await UserSecurityKeys.findOneBy({
 			id: Buffer.from(
 				body.credentialId
 					.replace(/-/g, '+')
@@ -191,7 +192,7 @@ export default async (ctx: Koa.Context) => {
 			return;
 		}
 
-		const keys = await UserSecurityKeys.find({
+		const keys = await UserSecurityKeys.findBy({
 			userId: user.id,
 		});
 

@@ -1,11 +1,9 @@
-import $ from 'cafy';
-import { ID } from '@/misc/cafy-id';
-import deleteNote from '@/services/note/delete';
-import define from '../../define';
+import deleteNote from '@/services/note/delete.js';
+import define from '../../define.js';
 import ms from 'ms';
-import { getNote } from '../../common/getters';
-import { ApiError } from '../../error';
-import { Users } from '@/models/index';
+import { getNote } from '../../common/getters.js';
+import { ApiError } from '../../error.js';
+import { Users } from '@/models/index.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -18,12 +16,6 @@ export const meta = {
 		duration: ms('1hour'),
 		max: 300,
 		minInterval: ms('1sec'),
-	},
-
-	params: {
-		noteId: {
-			validator: $.type(ID),
-		},
 	},
 
 	errors: {
@@ -41,17 +33,25 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {
+		noteId: { type: 'string', format: 'misskey:id' },
+	},
+	required: ['noteId'],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async (ps, user) => {
+export default define(meta, paramDef, async (ps, user) => {
 	const note = await getNote(ps.noteId).catch(e => {
 		if (e.id === '9725d0ce-ba28-4dde-95a7-2cbb2c15de24') throw new ApiError(meta.errors.noSuchNote);
 		throw e;
 	});
 
-	if (!user.isAdmin && !user.isModerator && (note.userId !== user.id)) {
+	if ((!user.isAdmin && !user.isModerator) && (note.userId !== user.id)) {
 		throw new ApiError(meta.errors.accessDenied);
 	}
 
 	// この操作を行うのが投稿者とは限らない(例えばモデレーター)ため
-	await deleteNote(await Users.findOneOrFail(note.userId), note);
+	await deleteNote(await Users.findOneByOrFail({ id: note.userId }), note);
 });

@@ -1,14 +1,11 @@
-import define from '../../define';
-import { getConnection } from 'typeorm';
+import { db } from '@/db/postgre.js';
+import define from '../../define.js';
 
 export const meta = {
 	requireCredential: true,
 	requireModerator: true,
 
 	tags: ['admin'],
-
-	params: {
-	},
 
 	res: {
 		type: 'object',
@@ -22,10 +19,16 @@ export const meta = {
 	},
 } as const;
 
+export const paramDef = {
+	type: 'object',
+	properties: {},
+	required: [],
+} as const;
+
 // eslint-disable-next-line import/no-default-export
-export default define(meta, async () => {
+export default define(meta, paramDef, async () => {
 	const sizes = await
-		getConnection().query(`
+		db.query(`
 			SELECT relname AS "table", reltuples as "count", pg_total_relation_size(C.oid) AS "size"
 			FROM pg_class C LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
 			WHERE nspname NOT IN ('pg_catalog', 'information_schema')
