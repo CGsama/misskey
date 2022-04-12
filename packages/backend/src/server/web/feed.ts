@@ -60,10 +60,10 @@ export default async function(user: User, withAll = false) {
 	}
 
 	async function noteToString(note, isTheNote = false){
-		const author = isTheNote ? null : await Users.findOne({id: note.userId});
+		const author = isTheNote ? null : await Users.findOneBy({id: note.userId});
 		let outstr = author ? `${author.name}(@${author.username}@${author.host ? author.host : config.host}) ${(note.renoteId ? 'renotes' : (note.replyId ? 'replies' : 'says'))}: <br>` : '';
-		const files = note.fileIds.length > 0 ? await DriveFiles.find({
-			id: In(note.fileIds)
+		const files = note.fileIds.length > 0 ? await DriveFiles.findBy({
+			id: In(note.fileIds),
 		}) : [];
 		let fileEle = '';
 		for (const file of files){
