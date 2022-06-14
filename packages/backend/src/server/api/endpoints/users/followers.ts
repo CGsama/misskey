@@ -8,7 +8,7 @@ import { IsNull } from 'typeorm';
 export const meta = {
 	tags: ['users'],
 
-	requireCredential: false,
+	requireCredential: true,
 
 	description: 'Show everyone that follows this user.',
 
