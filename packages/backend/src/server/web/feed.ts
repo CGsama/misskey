@@ -2,10 +2,9 @@ import { Feed } from 'feed';
 import { In, IsNull } from 'typeorm';
 import config from '@/config/index.js';
 import { User } from '@/models/entities/user.js';
-import { Users, Notes, DriveFiles, UserProfiles } from '@/models/index.js';
-import { In, IsNull } from 'typeorm';
+import { Notes, DriveFiles, UserProfiles, Users } from '@/models/index.js';
 
-export default async function(user: User, withAll = false, history = 5) {
+export default async function(user: User, history = 5, noteintitle = false) {
 	const author = {
 		link: `${config.url}/@${user.username}`,
 		email: `${user.username}@${config.host}`,
@@ -17,7 +16,6 @@ export default async function(user: User, withAll = false, history = 5) {
 	const notes = await Notes.find({
 		where: {
 			userId: user.id,
-			//renoteId: IsNull(),
 			visibility: In(['public', 'home']),
 		},
 		order: { createdAt: -1 },
@@ -29,7 +27,7 @@ export default async function(user: User, withAll = false, history = 5) {
 		title: `${author.name} (@${user.username}@${config.host})`,
 		updated: notes[0].createdAt,
 		generator: 'Misskey',
-		description: `${user.notesCount} Notes, ${user.followingCount} Following, ${user.followersCount} Followers${profile.description ? ` · ${profile.description}` : ''}`,
+		description: `${user.notesCount} Notes, ${profile.ffVisibility === 'public' ? user.followingCount : '?'} Following, ${profile.ffVisibility === 'public' ? user.followersCount : '?'} Followers${profile.description ? ` · ${profile.description}` : ''}`,
 		link: author.link,
 		image: await Users.getAvatarUrl(user),
 		feedLinks: {
@@ -44,57 +42,60 @@ export default async function(user: User, withAll = false, history = 5) {
 		let contentStr = await noteToString(note, true);
 		let next = note.renoteId ? note.renoteId : note.replyId;
 		let depth = history;
-		while(depth > 0 && next && withAll){
-			let finding = await findById(next);
+		while (depth > 0 && next) {
+			const finding = await findById(next);
 			contentStr += finding.text;
 			next = finding.next;
 			depth -= 1;
 		}
 
+		let title = `${author.name} ${(note.renoteId ? 'renotes' : (note.replyId ? 'replies' : 'says'))}`;
+		title += noteintitle ? `: ${note.cw ? note.cw : (note.text ? note.text : 'post a new note')}` : '';
+
 		feed.addItem({
-			title: `${author.name} ${(note.renoteId ? 'renotes' : (note.replyId ? 'replies' : 'says'))}: ${note.cw ? note.cw : (note.text ? note.text : 'post a new note')}`.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').substring(0,100),
+			title: title.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').substring(0,100),
 			link: `${config.url}/notes/${note.id}`,
 			date: note.createdAt,
 			description: note.cw ? note.cw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') : undefined,
-			content: `${contentStr.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')}`
+			content: contentStr.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
 		});
 	}
 
-	async function noteToString(note, isTheNote = false){
-		const author = isTheNote ? null : await Users.findOneBy({id: note.userId});
+	async function noteToString(note, isTheNote = false) {
+		const author = isTheNote ? null : await Users.findOneBy({ id: note.userId });
 		let outstr = author ? `${author.name}(@${author.username}@${author.host ? author.host : config.host}) ${(note.renoteId ? 'renotes' : (note.replyId ? 'replies' : 'says'))}: <br>` : '';
 		const files = note.fileIds.length > 0 ? await DriveFiles.findBy({
 			id: In(note.fileIds),
 		}) : [];
 		let fileEle = '';
-		for (const file of files){
-			if(file.type.startsWith('image/')){
+		for (const file of files) {
+			if (file.type.startsWith('image/')) {
 				fileEle += ` <br><img src="${DriveFiles.getPublicUrl(file)}">`;
-			}else if(file.type.startsWith('audio/')){
+			} else if (file.type.startsWith('audio/')) {
 				fileEle += ` <br><audio controls src="${DriveFiles.getPublicUrl(file)}" type="${file.type}">`;
-			}else if(file.type.startsWith('video/')){
+			} else if (file.type.startsWith('video/')) {
 				fileEle += ` <br><video controls src="${DriveFiles.getPublicUrl(file)}" type="${file.type}">`;
-			}else{
+			} else {
 				fileEle += ` <br><a href="${DriveFiles.getPublicUrl(file)}" download="${file.name}">${file.name}</a>`;
 			}
 		}
 		outstr += `${note.cw ? note.cw + '<br>' : ''}${note.text || ''}${fileEle}`;
-		if(isTheNote){
-			outstr += ` <span class="${(note.renoteId ? 'renote_note' : (note.replyId ? 'reply_note' : 'new_note'))} ${(fileEle.indexOf('img src') != -1 ? 'with_img' : 'without_img')}"></span>`;
+		if (isTheNote) {
+			outstr += ` <span class="${(note.renoteId ? 'renote_note' : (note.replyId ? 'reply_note' : 'new_note'))} ${(fileEle.indexOf('img src') !== -1 ? 'with_img' : 'without_img')}"></span>`;
 		}
 		return outstr;
 	}
 
-	async function findById(id){
+	async function findById(id) {
 		let text = '';
 		let next = null;
-		const findings = await Notes.find({where: {id: id, visibility: In(['public', 'home'])}, order: { createdAt: -1 }, take: 20});
-		for (const aFind of findings){
+		const findings = await Notes.findOneBy({ id: id, visibility: In(['public', 'home']) });
+		if (findings) {
 			text += `<hr>`;
-			text += await noteToString(aFind);
-			next = aFind.renoteId ? aFind.renoteId : aFind.replyId;
+			text += await noteToString(findings);
+			next = findings.renoteId ? findings.renoteId : findings.replyId;
 		}
-		return {text: text, next: next};
+		return { text, next };
 	}
 
 	return feed;
