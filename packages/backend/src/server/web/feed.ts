@@ -4,7 +4,7 @@ import config from '@/config/index.js';
 import { User } from '@/models/entities/user.js';
 import { Notes, DriveFiles, UserProfiles, Users } from '@/models/index.js';
 
-export default async function(user: User, history = 5, noteintitle = false) {
+export default async function(user: User, threadDepth = 5, history = 20, noteintitle = false, renotes = true, replies = true) {
 	const author = {
 		link: `${config.url}/@${user.username}`,
 		email: `${user.username}@${config.host}`,
@@ -13,13 +13,23 @@ export default async function(user: User, history = 5, noteintitle = false) {
 
 	const profile = await UserProfiles.findOneByOrFail({ userId: user.id });
 
+	let searchCriteria = {
+		userId: user.id,
+		visibility: In(['public', 'home']),
+	};
+
+	if (!renotes) {
+		searchCriteria.renoteId = IsNull();
+	}
+
+	if (!replies) {
+		searchCriteria.replyId = IsNull();
+	}
+
 	const notes = await Notes.find({
-		where: {
-			userId: user.id,
-			visibility: In(['public', 'home']),
-		},
+		where: searchCriteria,
 		order: { createdAt: -1 },
-		take: 20,
+		take: history,
 	});
 
 	const feed = new Feed({
@@ -41,7 +51,7 @@ export default async function(user: User, history = 5, noteintitle = false) {
 	for (const note of notes) {
 		let contentStr = await noteToString(note, true);
 		let next = note.renoteId ? note.renoteId : note.replyId;
-		let depth = history;
+		let depth = threadDepth;
 		while (depth > 0 && next) {
 			const finding = await findById(next);
 			contentStr += finding.text;
@@ -49,8 +59,22 @@ export default async function(user: User, history = 5, noteintitle = false) {
 			depth -= 1;
 		}
 
-		let title = `${author.name} ${(note.renoteId ? 'renotes' : (note.replyId ? 'replies' : 'says'))}`;
-		title += noteintitle ? `: ${note.cw ? note.cw : (note.text ? note.text : 'post a new note')}` : '';
+		let title = `${author.name} `;
+		if (note.renoteId) {
+			title += 'renotes';
+		} else if (note.replyId) {
+			title += 'replies';
+		} else {
+			title += 'says';
+		}
+		if (noteintitle) {
+			const content = note.cw ?? note.text;
+			if (content) {
+				title += `: ${content}`;
+			} else {
+				title += 'something';
+			}
+		}
 
 		feed.addItem({
 			title: title.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').substring(0,100),
