@@ -36,7 +36,7 @@ gulp.task('copy:client:locales', cb => {
 });
 
 gulp.task('build:backend:script', () => {
-	return gulp.src(['./packages/backend/src/server/web/boot.js', './packages/backend/src/server/web/bios.js', './packages/backend/src/server/web/cli.js'])
+	return gulp.src(['./packages/backend/src/server/web/boot.js', './packages/backend/src/server/web/bios.js', './packages/backend/src/server/web/cli.js', './packages/backend/src/server/web/matomo.js'])
 		.pipe(replace('LANGS', JSON.stringify(Object.keys(locales))))
 		.pipe(terser({
 			toplevel: true
