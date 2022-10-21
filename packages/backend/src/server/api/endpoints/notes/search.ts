@@ -117,9 +117,18 @@ export default define(meta, paramDef, async (ps, me) => {
 						}, ...hostQuery, ...userQuery],
 					},
 				},
-				sort: [{
-					_doc: 'desc',
-				}],
+				sort: [
+						{
+							"_score": {
+								"order": "desc"
+							}
+						},
+						{
+							"date": {
+								"order": "desc"
+							}
+						}
+				],
 			},
 		});
 
