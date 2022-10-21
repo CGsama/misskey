@@ -124,7 +124,7 @@ export default define(meta, paramDef, async (ps, me) => {
 							}
 						},
 						{
-							"date": {
+							"_id": {
 								"order": "desc"
 							}
 						}
