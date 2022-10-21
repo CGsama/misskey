@@ -107,7 +107,6 @@ export default define(meta, paramDef, async (ps, me) => {
 				size: ps.limit,
 				from: ps.offset,
 				track_scores: true,
-				fuzziness: "AUTO:5,11",
 				query: {
 					bool: {
 						must: [{
@@ -115,6 +114,7 @@ export default define(meta, paramDef, async (ps, me) => {
 								fields: ['text'],
 								query: ps.query.toLowerCase(),
 								default_operator: 'and',
+								fuzziness: "AUTO:5,11",
 							},
 						}, ...hostQuery, ...userQuery],
 					},
