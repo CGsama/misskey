@@ -106,6 +106,7 @@ export default define(meta, paramDef, async (ps, me) => {
 			body: {
 				size: ps.limit,
 				from: ps.offset,
+				track_scores: true,
 				query: {
 					bool: {
 						must: [{
