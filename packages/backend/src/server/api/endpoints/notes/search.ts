@@ -110,11 +110,12 @@ export default define(meta, paramDef, async (ps, me) => {
 				query: {
 					bool: {
 						must: [{
-							simple_query_string: {
-								fields: ['text'],
-								query: ps.query.toLowerCase(),
-								default_operator: 'and',
-								fuzziness: "AUTO:5,11",
+							match: {
+								text: {
+									query: ps.query.toLowerCase(),
+									fuzziness: "AUTO:5,11",
+									operator: "AND"
+								}
 							},
 						}, ...hostQuery, ...userQuery],
 					},
