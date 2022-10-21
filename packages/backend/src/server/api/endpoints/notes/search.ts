@@ -107,6 +107,7 @@ export default define(meta, paramDef, async (ps, me) => {
 				size: ps.limit,
 				from: ps.offset,
 				track_scores: true,
+				fuziness: "auto:5,11",
 				query: {
 					bool: {
 						must: [{
@@ -120,12 +121,12 @@ export default define(meta, paramDef, async (ps, me) => {
 				},
 				sort: [
 						{
-							"_score": {
+							"_id": {
 								"order": "desc"
 							}
 						},
 						{
-							"_id": {
+							"_score": {
 								"order": "desc"
 							}
 						}
