@@ -107,7 +107,7 @@ export default define(meta, paramDef, async (ps, me) => {
 				size: ps.limit,
 				from: ps.offset,
 				track_scores: true,
-				fuziness: "auto:5,11",
+				fuzziness: "AUTO:5,11",
 				query: {
 					bool: {
 						must: [{
