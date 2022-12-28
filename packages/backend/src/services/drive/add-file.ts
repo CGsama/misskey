@@ -22,7 +22,7 @@ import { InternalStorage } from './internal-storage.js';
 import { IImage, convertSharpToJpeg, convertSharpToWebp, convertSharpToPng } from './image-processor.js';
 import { driveLogger } from './logger.js';
 import { GenerateVideoThumbnail } from './generate-video-thumbnail.js';
-import { deleteFile } from './delete-file.js';
+import { deleteFileSync } from './delete-file.js';
 
 const logger = driveLogger.createSubLogger('register', 'yellow');
 
@@ -302,7 +302,7 @@ async function deleteOldFile(user: IRemoteUser) {
 	const oldFile = await q.getOne();
 
 	if (oldFile) {
-		deleteFile(oldFile, true);
+		await deleteFileSync(oldFile, true);
 	}
 }
 
@@ -393,7 +393,7 @@ export async function addFile({
 
 	//#region Check drive usage
 	if (user && !isLink) {
-		const usage = await DriveFiles.calcDriveUsageOf(user);
+		let usage = await DriveFiles.calcDriveUsageOf(user);
 		const u = await Users.findOneBy({ id: user.id });
 
 		const instance = await fetchMeta();
@@ -408,13 +408,14 @@ export async function addFile({
 		logger.debug(`drive usage is ${usage} (max: ${driveCapacity})`);
 
 		// If usage limit exceeded
-		if (usage + info.size > driveCapacity) {
+		while (usage + info.size > driveCapacity) {
 			if (Users.isLocalUser(user)) {
 				throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space.');
 			} else {
 				// (アバターまたはバナーを含まず)最も古いファイルを削除する
-				deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
+				await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
 			}
+			usage = await DriveFiles.calcDriveUsageOf(user);
 		}
 	}
 	//#endregion
