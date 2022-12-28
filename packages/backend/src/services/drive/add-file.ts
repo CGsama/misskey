@@ -304,6 +304,7 @@ async function deleteOldFile(user: IRemoteUser) {
 	if (oldFile) {
 		await deleteFileSync(oldFile, true);
 	}
+	return oldFile ? oldFile.size : 0;
 }
 
 type AddFileArgs = {
@@ -408,14 +409,20 @@ export async function addFile({
 		logger.debug(`drive usage is ${usage} (max: ${driveCapacity})`);
 
 		// If usage limit exceeded
-		while (usage + info.size > driveCapacity) {
+		let diff = usage + info.size - driveCapacity;
+		while (diff > 0) {
+			let deletedFileSize = 0;
 			if (Users.isLocalUser(user)) {
 				throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space.');
 			} else {
 				// (アバターまたはバナーを含まず)最も古いファイルを削除する
-				await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
+				deletedFileSize = await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
 			}
-			usage = await DriveFiles.calcDriveUsageOf(user);
+
+			if (deletedFileSize == 0) {
+				break;
+			}
+			diff = diff - deletedFileSize;
 		}
 	}
 	//#endregion
