@@ -15,6 +15,7 @@ import * as ep___admin_announcements_update from './endpoints/admin/announcement
 import * as ep___admin_deleteAllFilesOfAUser from './endpoints/admin/delete-all-files-of-a-user.js';
 import * as ep___admin_drive_cleanRemoteFiles from './endpoints/admin/drive/clean-remote-files.js';
 import * as ep___admin_drive_cleanup from './endpoints/admin/drive/cleanup.js';
+import * as ep___admin_drive_expireRemote from './endpoints/admin/drive/expire-remote.js';
 import * as ep___admin_drive_files from './endpoints/admin/drive/files.js';
 import * as ep___admin_drive_showFile from './endpoints/admin/drive/show-file.js';
 import * as ep___admin_emoji_addAliasesBulk from './endpoints/admin/emoji/add-aliases-bulk.js';
@@ -332,6 +333,7 @@ const eps = [
 	['admin/delete-all-files-of-a-user', ep___admin_deleteAllFilesOfAUser],
 	['admin/drive/clean-remote-files', ep___admin_drive_cleanRemoteFiles],
 	['admin/drive/cleanup', ep___admin_drive_cleanup],
+	['admin/drive/expire-remote', ep___admin_drive_expireRemote],
 	['admin/drive/files', ep___admin_drive_files],
 	['admin/drive/show-file', ep___admin_drive_showFile],
 	['admin/emoji/add-aliases-bulk', ep___admin_emoji_addAliasesBulk],
