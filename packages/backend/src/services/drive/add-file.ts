@@ -415,7 +415,7 @@ export async function addFile({
 			if (Users.isLocalUser(user)) {
 				throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space.');
 			}
-			await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser, driveCapacity - info.size);
+			deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser, driveCapacity - info.size);
 		}
 	}
 	//#endregion

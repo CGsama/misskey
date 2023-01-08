@@ -73,5 +73,5 @@ export default define(meta, paramDef, async (ps, user) => {
 		throw new ApiError(meta.errors.accessDenied);
 	}
 
-	return await deleteOldFile(remoteUser);
+	deleteOldFile(remoteUser);
 });
