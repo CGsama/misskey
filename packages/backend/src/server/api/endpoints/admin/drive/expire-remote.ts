@@ -27,12 +27,15 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
-		fileId: { type: 'string', format: 'misskey:id' },
+		userIds: { type: 'array', items: {
+			type: 'string',
+			format: 'misskey:id'
+		}},
 	},
-	required: ['userId'],
+	required: ['userIds'],
 } as const;
 
-async function deleteOldFile(user: IRemoteUser) {
+async function expireOldFile(user: IRemoteUser) {
 	const q = DriveFiles.createQueryBuilder('file')
 		.where('file.userId = :userId', { userId: user.id })
 		.andWhere('file.isLink = FALSE');
@@ -62,16 +65,17 @@ async function deleteOldFile(user: IRemoteUser) {
 
 // eslint-disable-next-line import/no-default-export
 export default define(meta, paramDef, async (ps, user) => {
-	const u = await Users.findOneBy({ id: ps.userId });
-	if (Users.isLocalUser(u)) {
-		return;
-	}
-
-	const remoteUser = await Users.findOneByOrFail({ id: u.id }) as IRemoteUser
-
 	if (!user.isAdmin) {
 		throw new ApiError(meta.errors.accessDenied);
 	}
+	for (const userId of ps.userIds) {
+		const u = await Users.findOneBy({ id: userId });
+		if (Users.isLocalUser(u)) {
+			continue;
+		}
 
-	deleteOldFile(remoteUser);
+		const remoteUser = await Users.findOneByOrFail({ id: u.id }) as IRemoteUser
+
+		expireOldFile(remoteUser);
+	}
 });
