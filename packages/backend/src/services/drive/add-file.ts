@@ -22,7 +22,7 @@ import { InternalStorage } from './internal-storage.js';
 import { IImage, convertSharpToJpeg, convertSharpToWebp, convertSharpToPng } from './image-processor.js';
 import { driveLogger } from './logger.js';
 import { GenerateVideoThumbnail } from './generate-video-thumbnail.js';
-import { deleteFileSync } from './delete-file.js';
+import { deleteFile } from './delete-file.js';
 
 const logger = driveLogger.createSubLogger('register', 'yellow');
 
@@ -284,7 +284,7 @@ async function upload(key: string, stream: fs.ReadStream | Buffer, type: string,
 	if (result) logger.debug(`Uploaded: ${result.Bucket}/${result.Key} => ${result.Location}`);
 }
 
-async function deleteOldFile(user: IRemoteUser) {
+async function deleteOldFile(user: IRemoteUser, driveCapacity: number) {
 	const q = DriveFiles.createQueryBuilder('file')
 		.where('file.userId = :userId', { userId: user.id })
 		.andWhere('file.isLink = FALSE');
@@ -297,14 +297,16 @@ async function deleteOldFile(user: IRemoteUser) {
 		q.andWhere('file.id != :bannerId', { bannerId: user.bannerId });
 	}
 
+	q.addSelect('SUM("file"."size") OVER (ORDER BY "file"."id" DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)', 'acc_usage');
 	q.orderBy('file.id', 'ASC');
 
-	const oldFile = await q.getOne();
+	const fileList = await q.getRawMany();
+	const exceedFileIds = fileList.filter((x: any) => x.acc_usage > driveCapacity).map((x: any) => x.file_id);
 
-	if (oldFile) {
-		await deleteFileSync(oldFile, true);
+	for (const fileId of exceedFileIds) {
+		const file = await DriveFiles.findOneBy({ id: fileId });
+		deleteFile(file, true);
 	}
-	return oldFile ? oldFile.size : 0;
 }
 
 type AddFileArgs = {
@@ -409,20 +411,11 @@ export async function addFile({
 		logger.debug(`drive usage is ${usage} (max: ${driveCapacity})`);
 
 		// If usage limit exceeded
-		let diff = usage + info.size - driveCapacity;
-		while (diff > 0) {
-			let deletedFileSize = 0;
+		if (driveCapacity < usage + info.size) {
 			if (Users.isLocalUser(user)) {
 				throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space.');
-			} else {
-				// (アバターまたはバナーを含まず)最も古いファイルを削除する
-				deletedFileSize = await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser);
 			}
-
-			if (deletedFileSize == 0) {
-				break;
-			}
-			diff = diff - deletedFileSize;
+			await deleteOldFile(await Users.findOneByOrFail({ id: user.id }) as IRemoteUser, driveCapacity - info.size);
 		}
 	}
 	//#endregion
