@@ -116,5 +116,5 @@ export default define(meta, paramDef, async (ps, user) => {
 		}
 	});
 
-	return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) ? [x] : []], []);
+	return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) || x.userId == user?.id ? [x] : []], []);
 });

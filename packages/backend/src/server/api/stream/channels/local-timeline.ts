@@ -31,7 +31,7 @@ export default class extends Channel {
 		const u = await Users.pack(note.userId, null, {
 			detail: true,
 		});
-		if (u.isSilenced) return;
+		if (u.isSilenced && !(this.user?.id == u.id)) return;
 		if (note.visibility !== 'public') return;
 		if (note.channelId != null && !this.followingChannels.has(note.channelId)) return;
 
