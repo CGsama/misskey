@@ -11,6 +11,7 @@ import { generateRepliesQuery } from '../../common/generate-replies-query.js';
 import { generateMutedNoteQuery } from '../../common/generate-muted-note-query.js';
 import { generateChannelQuery } from '../../common/generate-channel-query.js';
 import { generateBlockedUserQuery } from '../../common/generate-block-query.js';
+import { Note } from '@/models/entities/note.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -115,5 +116,5 @@ export default define(meta, paramDef, async (ps, user) => {
 		}
 	});
 
-	return await Notes.packMany(timeline, user);
+	return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) ? [x] : []], []);
 });

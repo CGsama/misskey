@@ -151,9 +151,10 @@ export default async (user: { id: User['id']; username: User['username']; host: 
 	if (data.channel != null) data.localOnly = true;
 
 	// サイレンス
+	/* modified local-timeline.ts
 	if (user.isSilenced && data.visibility === 'public' && data.channel == null) {
 		data.visibility = 'home';
-	}
+	}*/
 
 	// Renote対象が「ホームまたは全体」以外の公開範囲ならreject
 	if (data.renote && data.renote.visibility !== 'public' && data.renote.visibility !== 'home' && data.renote.userId !== user.id) {

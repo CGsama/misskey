@@ -1,6 +1,6 @@
 import Channel from '../channel.js';
 import { fetchMeta } from '@/misc/fetch-meta.js';
-import { Notes } from '@/models/index.js';
+import { Notes, Users } from '@/models/index.js';
 import { checkWordMute } from '@/misc/check-word-mute.js';
 import { isUserRelated } from '@/misc/is-user-related.js';
 import { Packed } from '@/misc/schema.js';
@@ -27,6 +27,11 @@ export default class extends Channel {
 
 	private async onNote(note: Packed<'Note'>) {
 		if (note.user.host !== null) return;
+		//remove silenced user from local timeline
+		const u = await Users.pack(note.userId, null, {
+			detail: true,
+		});
+		if (u.isSilenced) return;
 		if (note.visibility !== 'public') return;
 		if (note.channelId != null && !this.followingChannels.has(note.channelId)) return;
 
