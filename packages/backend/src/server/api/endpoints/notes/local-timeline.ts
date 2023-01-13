@@ -12,6 +12,7 @@ import { generateMutedNoteQuery } from '../../common/generate-muted-note-query.j
 import { generateChannelQuery } from '../../common/generate-channel-query.js';
 import { generateBlockedUserQuery } from '../../common/generate-block-query.js';
 import { Note } from '@/models/entities/note.js';
+import { User } from '@/models/entities/user.js';
 
 export const meta = {
 	tags: ['notes'],
@@ -115,6 +116,10 @@ export default define(meta, paramDef, async (ps, user) => {
 			activeUsersChart.read(user);
 		}
 	});
-
-	return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) || x.userId == user?.id ? [x] : []], []);
+	const notes = await Notes.packMany(timeline, user);
+	const userIds = notes.map((x: Note) => x.userId);
+	const users = (await Users.packMany(userIds, null, {detail: true,})).reduce((obj: any, x: User) => {obj[x.id] = x; return obj});
+	const returnNotes = notes.filter((x: Note) => !users[x.userId].isSilenced || x.userId == user?.id);
+	return returnNotes;
+	//return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) || x.userId == user?.id ? [x] : []], []);
 });
