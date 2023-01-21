@@ -118,10 +118,9 @@ export default define(meta, paramDef, async (ps, user) => {
 	});
 	const notes = await Notes.packMany(timeline, user);
 	const userIds = notes.map((x: Note) => x.userId);
-	const users = (await Users.packMany(userIds, null, {detail: true,})).reduce((obj: any, x: User) => {obj[x.id] = x; return obj});
-	console.log()
+	const users = (await Users.packMany(userIds, null, {detail: true,})).reduce((obj: any, x: User) => {obj[x.id] = x; return obj}, {});
 	const returnNotes = notes.filter((x: Note) => !users[x.userId]?.isSilenced || x.userId == user?.id);
-	return {notes, userIds, users, returnNotes}
-	//return returnNotes;
+	//return {notes, userIds, users, returnNotes}
+	return returnNotes;
 	//return await (await Notes.packMany(timeline, user)).reduce(async (arr: any, x: Note) => [...await arr, ...(!(await Users.pack(x.userId, null, {detail: true,})).isSilenced) || x.userId == user?.id ? [x] : []], []);
 });
