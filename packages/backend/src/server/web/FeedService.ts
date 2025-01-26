@@ -19,9 +19,13 @@ import { parse as mfmParse } from 'mfm-js';
 import { MiNote } from '@/models/Note.js';
 import { isQuote, isRenote } from '@/misc/is-renote.js';
 import { getNoteSummary } from '@/misc/get-note-summary.js';
+import Logger from '@/logger.js';
+import { LoggerService } from '@/core/LoggerService.js';
 
 @Injectable()
 export class FeedService {
+	private readonly logger: Logger;
+
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
@@ -39,7 +43,10 @@ export class FeedService {
 		private driveFileEntityService: DriveFileEntityService,
 		private idService: IdService,
 		private mfmService: MfmService,
+
+		loggerService: LoggerService,
 	) {
+		this.logger = loggerService.getLogger('feed');
 	}
 
 	@bindThis
@@ -55,7 +62,6 @@ export class FeedService {
 		const notes = await this.notesRepository.find({
 			where: {
 				userId: user.id,
-				renoteId: IsNull(),
 				visibility: In(['public', 'home']),
 			},
 			order: { id: -1 },
@@ -120,10 +126,11 @@ export class FeedService {
 	}
 
 	private escapeCDATA(str: string) {
-		return str.replaceAll("]]>", "]]]]><![CDATA[>").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
+		return str?.replaceAll("]]>", "]]]]><![CDATA[>").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "");
 	}
 
 	private async noteToString(note: MiNote, isTheNote = false) {
+		this.logger.info(`note2str ${note.userId} ${note.text}`);
 		const author = isTheNote
 			? null
 			: await this.userProfilesRepository.findOneByOrFail({ userId: note.userId });
@@ -134,7 +141,7 @@ export class FeedService {
 					note.renoteId ? "renotes" : note.replyId ? "replies" : "says"
 				}: <br>`
 			: "";
-		const files = note.fileIds.length > 0 ? await this.driveFilesRepository.findBy({
+		const files = note.fileIds?.length ? await this.driveFilesRepository.findBy({
 			id: In(note.fileIds),
 		}) : [];
 		let fileEle = "";
@@ -172,19 +179,17 @@ export class FeedService {
 	private async findById(id : String) {
 		let text = "";
 		let next = null;
-		const findings = await this.notesRepository.find({
-			where: {
-				id: id,
-				renoteId: IsNull(),
-				visibility: In(['public', 'home']),
-			},
-			order: { id: -1 },
-			take: 1,
+		const findings = await this.notesRepository.findOneBy({
+			id: id,
+			visibility: In(['public', 'home']),
 		});
+		
 		if (findings) {
 			text += `<hr>`;
 			text += await this.noteToString(findings);
 			next = findings.renoteId ? findings.renoteId : findings.replyId;
+		} else {
+			this.logger.info(`Note ${id} not in scope`);
 		}
 		return { text, next };
 	}
